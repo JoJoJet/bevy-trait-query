@@ -77,18 +77,59 @@ pub trait Foo: 'static {
     fn set_age(&mut self, age: u32);
 }
 
-impl DynQuery for dyn Foo {}
+#[macro_export]
+macro_rules! impl_dyn_query {
+    ($trait:ident) => {
+        impl $crate::DynQuery for dyn $trait {}
 
-impl<T: Foo + Component<Storage = TableStorage>> ComponentWithTrait<dyn Foo> for T {
-    unsafe fn get_dyn(ptr: Ptr, index: usize) -> &dyn Foo {
-        let offset = (index * std::mem::size_of::<Self>()) as isize;
-        ptr.byte_offset(offset).deref::<Self>()
-    }
-    unsafe fn get_dyn_mut(ptr: PtrMut, index: usize) -> &mut dyn Foo {
-        let offset = (index * std::mem::size_of::<Self>()) as isize;
-        ptr.byte_offset(offset).deref_mut::<Self>()
-    }
+        impl<T: $trait + Component<Storage = TableStorage>> ComponentWithTrait<dyn $trait> for T {
+            unsafe fn get_dyn(ptr: Ptr, index: usize) -> &dyn $trait {
+                let offset = (index * std::mem::size_of::<Self>()) as isize;
+                ptr.byte_offset(offset).deref::<Self>()
+            }
+            unsafe fn get_dyn_mut(ptr: PtrMut, index: usize) -> &mut dyn $trait {
+                let offset = (index * std::mem::size_of::<Self>()) as isize;
+                ptr.byte_offset(offset).deref_mut::<Self>()
+            }
+        }
+
+        unsafe impl<'w> WorldQuery for &'w dyn $trait {
+            type ReadOnly = Self;
+            type State = TraitComponentRegistry<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: bevy::ecs::query::QueryItem<'wlong, Self>,
+            ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+                item
+            }
+        }
+
+        unsafe impl ReadOnlyWorldQuery for &dyn $trait {}
+
+        impl<'w> WorldQueryGats<'w> for &dyn $trait {
+            type Fetch = ReadTraitComponentsFetch<'w, dyn $trait>;
+            type _State = TraitComponentRegistry<dyn $trait>;
+        }
+
+        unsafe impl<'w> WorldQuery for &'w mut dyn $trait {
+            type ReadOnly = &'w dyn $trait;
+            type State = TraitComponentRegistry<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: bevy::ecs::query::QueryItem<'wlong, Self>,
+            ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+                item
+            }
+        }
+
+        impl<'w> WorldQueryGats<'w> for &mut dyn $trait {
+            type Fetch = WriteTraitComponentsFetch<'w, dyn $trait>;
+            type _State = TraitComponentRegistry<dyn $trait>;
+        }
+    };
 }
+
+impl_dyn_query!(Foo);
 
 impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
     fn init(world: &mut World) -> Self {
@@ -308,38 +349,4 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             }
         }
     }
-}
-
-unsafe impl<'w> WorldQuery for &'w dyn Foo {
-    type ReadOnly = Self;
-    type State = TraitComponentRegistry<dyn Foo>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(
-        item: bevy::ecs::query::QueryItem<'wlong, Self>,
-    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-        item
-    }
-}
-
-unsafe impl ReadOnlyWorldQuery for &dyn Foo {}
-
-impl<'w> WorldQueryGats<'w> for &dyn Foo {
-    type Fetch = ReadTraitComponentsFetch<'w, dyn Foo>;
-    type _State = TraitComponentRegistry<dyn Foo>;
-}
-
-unsafe impl<'w> WorldQuery for &'w mut dyn Foo {
-    type ReadOnly = &'w dyn Foo;
-    type State = TraitComponentRegistry<dyn Foo>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(
-        item: bevy::ecs::query::QueryItem<'wlong, Self>,
-    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-        item
-    }
-}
-
-impl<'w> WorldQueryGats<'w> for &mut dyn Foo {
-    type Fetch = WriteTraitComponentsFetch<'w, dyn Foo>;
-    type _State = TraitComponentRegistry<dyn Foo>;
 }
