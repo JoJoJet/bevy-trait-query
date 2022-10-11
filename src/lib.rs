@@ -13,21 +13,23 @@ use bevy::{
 
 pub trait DynQuery: 'static {}
 
-pub trait ComponentWithTrait<Dyn: ?Sized + 'static>: Component<Storage = TableStorage> {
+pub trait DynQueryMarker<Dyn: ?Sized + 'static> {
+    type Covered: Component<Storage = TableStorage>;
     unsafe fn get_dyn(_: Ptr, index: usize) -> &Dyn;
     unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Dyn;
 }
 
 pub trait RegisterExt {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
-        &mut self,
-    ) -> &mut Self;
+    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    where
+        (C,): DynQueryMarker<Trait, Covered = C>;
 }
 
 impl RegisterExt for World {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
-        &mut self,
-    ) -> &mut Self {
+    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    where
+        (C,): DynQueryMarker<Trait, Covered = C>,
+    {
         let component_id = self.init_component::<C>();
         let registry = self
             .get_resource_or_insert_with(|| TraitComponentRegistry::<Trait> {
@@ -38,16 +40,17 @@ impl RegisterExt for World {
             })
             .into_inner();
         registry.components.push(component_id);
-        registry.cast_dyn.push(C::get_dyn);
-        registry.cast_dyn_mut.push(C::get_dyn_mut);
+        registry.cast_dyn.push(<(C,)>::get_dyn);
+        registry.cast_dyn_mut.push(<(C,)>::get_dyn_mut);
         self
     }
 }
 
 impl RegisterExt for App {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
-        &mut self,
-    ) -> &mut Self {
+    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    where
+        (C,): DynQueryMarker<Trait, Covered = C>,
+    {
         self.world.register_component_as::<Trait, C>();
         self
     }
@@ -86,8 +89,9 @@ macro_rules! impl_dyn_query {
         impl $crate::DynQuery for dyn $trait {}
 
         impl<T: $trait + Component<Storage = $crate::imports::TableStorage>>
-            ComponentWithTrait<dyn $trait> for (T,)
+            $crate::DynQueryMarker<dyn $trait> for (T,)
         {
+            type Covered = T;
             unsafe fn get_dyn(ptr: $crate::imports::Ptr, index: usize) -> &dyn $trait {
                 let offset = (index * std::mem::size_of::<Self>()) as isize;
                 ptr.byte_offset(offset).deref::<T>()
