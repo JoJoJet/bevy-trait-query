@@ -33,11 +33,13 @@ impl RegisterExt for World {
             .get_resource_or_insert_with(|| TraitComponentRegistry::<Trait> {
                 components: vec![],
                 cast_dyn: vec![],
+                cast_dyn_mut: vec![],
                 marker: PhantomData,
             })
             .into_inner();
         registry.components.push(component_id);
         registry.cast_dyn.push(C::get_dyn);
+        registry.cast_dyn_mut.push(C::get_dyn_mut);
         self
     }
 }
@@ -54,6 +56,7 @@ impl RegisterExt for App {
 pub struct TraitComponentRegistry<Dyn: ?Sized + DynQuery> {
     components: Vec<ComponentId>,
     cast_dyn: Vec<unsafe fn(Ptr, usize) -> &Dyn>,
+    cast_dyn_mut: Vec<unsafe fn(PtrMut, usize) -> &mut Dyn>,
     marker: PhantomData<fn() -> Dyn>,
 }
 
@@ -62,6 +65,7 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
         Self {
             components: self.components.clone(),
             cast_dyn: self.cast_dyn.clone(),
+            cast_dyn_mut: self.cast_dyn_mut.clone(),
             marker: PhantomData,
         }
     }
@@ -203,7 +207,108 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     }
 }
 
-unsafe impl WorldQuery for &dyn Foo {
+pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+    table_components: Option<Ptr<'w>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    cast_dyn: Option<unsafe fn(PtrMut, usize) -> &mut Trait>,
+}
+
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetch<'w, Trait> {
+    type Item = &'w mut Trait;
+    type State = TraitComponentRegistry<Trait>;
+
+    unsafe fn init(
+        _world: &'w World,
+        _state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        Self {
+            table_components: None,
+            entity_table_rows: None,
+            cast_dyn: None,
+        }
+    }
+
+    const IS_DENSE: bool = false;
+    const IS_ARCHETYPAL: bool = false;
+
+    unsafe fn set_archetype(
+        &mut self,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
+        tables: &'w bevy::ecs::storage::Tables,
+    ) {
+        self.entity_table_rows = Some(archetype.entity_table_rows().into());
+        let table = &tables[archetype.table_id()];
+        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn_mut) {
+            if let Some(column) = table.get_column(component) {
+                self.table_components = Some(column.get_data_ptr());
+                self.cast_dyn = Some(cast);
+                return;
+            }
+        }
+        // At least one of the components must be present in the table.
+        unreachable!()
+    }
+
+    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+        let ((entity_table_rows, table_components), cast_dyn) = self
+            .entity_table_rows
+            .zip(self.table_components)
+            .zip(self.cast_dyn)
+            .unwrap();
+        let table_row = *entity_table_rows.get(archetype_index);
+        // Is `assert_unique` correct here??
+        cast_dyn(table_components.assert_unique(), table_row)
+    }
+
+    unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn_mut) {
+            if let Some(column) = table.get_column(component) {
+                self.table_components = Some(column.get_data_ptr());
+                self.cast_dyn = Some(cast);
+                return;
+            }
+        }
+        // At least one of the components must be present in the table.
+        unreachable!();
+    }
+
+    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
+        let (table_components, cast_dyn) = self.table_components.zip(self.cast_dyn).unwrap();
+        // Is `assert_unique` correct here??
+        cast_dyn(table_components.assert_unique(), table_row)
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        for &component in &state.components {
+            assert!(
+                !access.access().has_write(component),
+                "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
+                    std::any::type_name::<Trait>(),
+            );
+            access.add_write(component);
+        }
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &bevy::ecs::archetype::Archetype,
+        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+    ) {
+        for &component in &state.components {
+            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+                access.add_write(archetype_component_id);
+            }
+        }
+    }
+}
+
+unsafe impl<'w> WorldQuery for &'w dyn Foo {
     type ReadOnly = Self;
     type State = TraitComponentRegistry<dyn Foo>;
 
@@ -218,6 +323,22 @@ unsafe impl ReadOnlyWorldQuery for &dyn Foo {}
 
 impl<'w> WorldQueryGats<'w> for &dyn Foo {
     type Fetch = ReadTraitComponentsFetch<'w, dyn Foo>;
+    type _State = TraitComponentRegistry<dyn Foo>;
+}
+
+unsafe impl<'w> WorldQuery for &'w mut dyn Foo {
+    type ReadOnly = &'w dyn Foo;
+    type State = TraitComponentRegistry<dyn Foo>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
+}
+
+impl<'w> WorldQueryGats<'w> for &mut dyn Foo {
+    type Fetch = WriteTraitComponentsFetch<'w, dyn Foo>;
     type _State = TraitComponentRegistry<dyn Foo>;
 }
 
@@ -261,7 +382,7 @@ mod tests {
             commands.spawn().insert(Gub);
         }
 
-        fn print_names(q: Query<&dyn Foo>) {
+        fn print_names(q: Query<&mut dyn Foo>) {
             for foo in &q {
                 println!("{}", foo.name());
             }
