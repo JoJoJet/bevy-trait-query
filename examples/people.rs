@@ -85,3 +85,15 @@ fn change_name(mut q: Query<&mut Beans>) {
         }
     }
 }
+
+// Output:
+//
+// All people:
+// Garbanzo: 7
+// Garbanzo: 14
+// Reginald: 27
+//
+// All people:
+// Garbanzo: 8
+// Garbanza: 15
+// Reginald: 28
