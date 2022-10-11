@@ -77,7 +77,7 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
 #[doc(hidden)]
 pub mod imports {
     pub use bevy::ecs::{
-        component::TableStorage,
+        component::{Component, TableStorage},
         query::{ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
     };
     pub use bevy::ptr::{Ptr, PtrMut};
@@ -88,7 +88,7 @@ macro_rules! impl_dyn_query {
     ($trait:ident) => {
         impl $crate::DynQuery for dyn $trait {}
 
-        impl<T: $trait + Component<Storage = $crate::imports::TableStorage>>
+        impl<T: $trait + $crate::imports::Component<Storage = $crate::imports::TableStorage>>
             $crate::DynQueryMarker<dyn $trait> for (T,)
         {
             type Covered = T;
