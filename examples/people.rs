@@ -4,8 +4,10 @@ use bevy_trait_query::*;
 fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .register_component_as::<dyn Person, Bar>()
-        .register_component_as::<dyn Person, Gub>()
+        // Register the components with the trait.
+        .register_component_as::<dyn Person, Beans>()
+        .register_component_as::<dyn Person, Reggie>()
+        // Add systems.
         .add_startup_system(setup)
         .add_system(print_info)
         .add_system(age_up.after(print_info))
@@ -14,18 +16,20 @@ fn main() {
     app.update();
 }
 
+/// Define a trait for our components to implement.
 pub trait Person: 'static {
     fn name(&self) -> &str;
     fn age(&self) -> u32;
     fn set_age(&mut self, age: u32);
 }
 
+// Add `WorldQuery` impls for `dyn Person`
 impl_dyn_query!(Person);
 
 #[derive(Component)]
-pub struct Bar(String, u32);
+pub struct Beans(String, u32);
 
-impl Person for Bar {
+impl Person for Beans {
     fn name(&self) -> &str {
         &self.0
     }
@@ -38,11 +42,11 @@ impl Person for Bar {
 }
 
 #[derive(Component)]
-pub struct Gub(u32);
+pub struct Reggie(u32);
 
-impl Person for Gub {
+impl Person for Reggie {
     fn name(&self) -> &str {
-        "reginald"
+        "Reginald"
     }
     fn age(&self) -> u32 {
         self.0
@@ -53,11 +57,12 @@ impl Person for Gub {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn().insert(Bar("Garbanzo".to_owned(), 7));
-    commands.spawn().insert(Bar("Garbanzo".to_owned(), 14));
-    commands.spawn().insert(Gub(27));
+    commands.spawn().insert(Beans("Garbanzo".to_owned(), 7));
+    commands.spawn().insert(Beans("Garbanzo".to_owned(), 14));
+    commands.spawn().insert(Reggie(27));
 }
 
+// Prints the name and age of every `Person`.
 fn print_info(people: Query<&dyn Person>) {
     println!("All people:");
     for person in &people {
@@ -73,10 +78,10 @@ fn age_up(mut people: Query<&mut dyn Person>) {
     }
 }
 
-fn change_name(mut q: Query<&mut Bar>) {
-    for mut bar in &mut q {
-        if bar.1 > 14 {
-            bar.0 = "Garbanza".to_owned();
+fn change_name(mut q: Query<&mut Beans>) {
+    for mut bean in &mut q {
+        if bean.name() == "Garbanzo" && bean.age() > 14 {
+            bean.0 = "Garbanza".to_owned();
         }
     }
 }
