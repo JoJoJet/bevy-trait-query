@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use bevy::{
     ecs::{
         component::{ComponentId, TableStorage},
-        query::{Fetch, FetchState, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+        query::{Fetch, FetchState},
     },
     prelude::*,
     ptr::{Ptr, PtrMut, ThinSlicePtr},
@@ -71,10 +71,13 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
     }
 }
 
-pub trait Foo: 'static {
-    fn name(&self) -> &str;
-    fn age(&self) -> u32;
-    fn set_age(&mut self, age: u32);
+#[doc(hidden)]
+pub mod imports {
+    pub use bevy::ecs::{
+        component::TableStorage,
+        query::{ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+    };
+    pub use bevy::ptr::{Ptr, PtrMut};
 }
 
 #[macro_export]
@@ -82,18 +85,20 @@ macro_rules! impl_dyn_query {
     ($trait:ident) => {
         impl $crate::DynQuery for dyn $trait {}
 
-        impl<T: $trait + Component<Storage = TableStorage>> ComponentWithTrait<dyn $trait> for T {
-            unsafe fn get_dyn(ptr: Ptr, index: usize) -> &dyn $trait {
+        impl<T: $trait + Component<Storage = $crate::imports::TableStorage>>
+            ComponentWithTrait<dyn $trait> for (T,)
+        {
+            unsafe fn get_dyn(ptr: $crate::imports::Ptr, index: usize) -> &dyn $trait {
                 let offset = (index * std::mem::size_of::<Self>()) as isize;
-                ptr.byte_offset(offset).deref::<Self>()
+                ptr.byte_offset(offset).deref::<T>()
             }
-            unsafe fn get_dyn_mut(ptr: PtrMut, index: usize) -> &mut dyn $trait {
+            unsafe fn get_dyn_mut(ptr: $crate::imports::PtrMut, index: usize) -> &mut dyn $trait {
                 let offset = (index * std::mem::size_of::<Self>()) as isize;
-                ptr.byte_offset(offset).deref_mut::<Self>()
+                ptr.byte_offset(offset).deref_mut::<T>()
             }
         }
 
-        unsafe impl<'w> WorldQuery for &'w dyn $trait {
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
             type ReadOnly = Self;
             type State = TraitComponentRegistry<dyn $trait>;
 
@@ -104,14 +109,14 @@ macro_rules! impl_dyn_query {
             }
         }
 
-        unsafe impl ReadOnlyWorldQuery for &dyn $trait {}
+        unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
 
-        impl<'w> WorldQueryGats<'w> for &dyn $trait {
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
             type Fetch = ReadTraitComponentsFetch<'w, dyn $trait>;
             type _State = TraitComponentRegistry<dyn $trait>;
         }
 
-        unsafe impl<'w> WorldQuery for &'w mut dyn $trait {
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
             type ReadOnly = &'w dyn $trait;
             type State = TraitComponentRegistry<dyn $trait>;
 
@@ -122,14 +127,12 @@ macro_rules! impl_dyn_query {
             }
         }
 
-        impl<'w> WorldQueryGats<'w> for &mut dyn $trait {
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
             type Fetch = WriteTraitComponentsFetch<'w, dyn $trait>;
             type _State = TraitComponentRegistry<dyn $trait>;
         }
     };
 }
-
-impl_dyn_query!(Foo);
 
 impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
     fn init(world: &mut World) -> Self {
