@@ -73,6 +73,8 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
 
 pub trait Foo: 'static {
     fn name(&self) -> &str;
+    fn age(&self) -> u32;
+    fn set_age(&mut self, age: u32);
 }
 
 impl DynQuery for dyn Foo {}
@@ -340,52 +342,4 @@ unsafe impl<'w> WorldQuery for &'w mut dyn Foo {
 impl<'w> WorldQueryGats<'w> for &mut dyn Foo {
     type Fetch = WriteTraitComponentsFetch<'w, dyn Foo>;
     type _State = TraitComponentRegistry<dyn Foo>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(Component)]
-    pub struct Bar;
-
-    impl Foo for Bar {
-        fn name(&self) -> &str {
-            "garbanzo"
-        }
-    }
-
-    #[derive(Component)]
-    pub struct Gub;
-
-    impl Foo for Gub {
-        fn name(&self) -> &str {
-            "reginald"
-        }
-    }
-
-    #[test]
-    fn main() {
-        App::new()
-            .add_plugins(MinimalPlugins)
-            .register_component_as::<dyn Foo, Bar>()
-            .register_component_as::<dyn Foo, Gub>()
-            .add_startup_system(setup)
-            .add_system(print_names)
-            .update();
-
-        panic!();
-
-        fn setup(mut commands: Commands) {
-            commands.spawn().insert(Bar);
-            commands.spawn().insert(Bar);
-            commands.spawn().insert(Gub);
-        }
-
-        fn print_names(q: Query<&mut dyn Foo>) {
-            for foo in &q {
-                println!("{}", foo.name());
-            }
-        }
-    }
 }
