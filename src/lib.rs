@@ -13,10 +13,10 @@ use bevy::{
 
 pub trait DynQuery: 'static {}
 
-pub trait DynQueryMarker<Dyn: ?Sized + 'static> {
+pub trait DynQueryMarker<Trait: ?Sized + 'static> {
     type Covered: Component<Storage = TableStorage>;
-    unsafe fn get_dyn(_: Ptr, index: usize) -> &Dyn;
-    unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Dyn;
+    unsafe fn get_dyn(_: Ptr, index: usize) -> &Trait;
+    unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Trait;
 }
 
 pub trait RegisterExt {
@@ -56,11 +56,11 @@ impl RegisterExt for App {
     }
 }
 
-pub struct TraitComponentRegistry<Dyn: ?Sized + DynQuery> {
+pub struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
     components: Vec<ComponentId>,
-    cast_dyn: Vec<unsafe fn(Ptr, usize) -> &Dyn>,
-    cast_dyn_mut: Vec<unsafe fn(PtrMut, usize) -> &mut Dyn>,
-    marker: PhantomData<fn() -> Dyn>,
+    cast_dyn: Vec<unsafe fn(Ptr, usize) -> &Trait>,
+    cast_dyn_mut: Vec<unsafe fn(PtrMut, usize) -> &mut Trait>,
+    marker: PhantomData<fn() -> Trait>,
 }
 
 impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
