@@ -11,19 +11,21 @@ use bevy::{
     ptr::{Ptr, PtrMut, ThinSlicePtr},
 };
 
+pub trait DynQuery: 'static {}
+
 pub trait ComponentWithTrait<Dyn: ?Sized + 'static>: Component<Storage = TableStorage> {
     unsafe fn get_dyn(_: Ptr, index: usize) -> &Dyn;
     unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Dyn;
 }
 
 pub trait RegisterExt {
-    fn register_component_as<Trait: ?Sized + 'static, C: ComponentWithTrait<Trait>>(
+    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
         &mut self,
     ) -> &mut Self;
 }
 
 impl RegisterExt for World {
-    fn register_component_as<Trait: ?Sized + 'static, C: ComponentWithTrait<Trait>>(
+    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
         &mut self,
     ) -> &mut Self {
         let component_id = self.init_component::<C>();
@@ -41,7 +43,7 @@ impl RegisterExt for World {
 }
 
 impl RegisterExt for App {
-    fn register_component_as<Trait: ?Sized + 'static, C: ComponentWithTrait<Trait>>(
+    fn register_component_as<Trait: ?Sized + DynQuery, C: ComponentWithTrait<Trait>>(
         &mut self,
     ) -> &mut Self {
         self.world.register_component_as::<Trait, C>();
@@ -49,13 +51,13 @@ impl RegisterExt for App {
     }
 }
 
-pub struct TraitComponentRegistry<Dyn: ?Sized + 'static> {
+pub struct TraitComponentRegistry<Dyn: ?Sized + DynQuery> {
     components: Vec<ComponentId>,
     cast_dyn: Vec<unsafe fn(Ptr, usize) -> &Dyn>,
     marker: PhantomData<fn() -> Dyn>,
 }
 
-impl<T: ?Sized + 'static> Clone for TraitComponentRegistry<T> {
+impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
     fn clone(&self) -> Self {
         Self {
             components: self.components.clone(),
@@ -69,6 +71,8 @@ pub trait Foo: 'static {
     fn name(&self) -> &str;
 }
 
+impl DynQuery for dyn Foo {}
+
 impl<T: Foo + Component<Storage = TableStorage>> ComponentWithTrait<dyn Foo> for T {
     unsafe fn get_dyn(ptr: Ptr, index: usize) -> &dyn Foo {
         let offset = (index * std::mem::size_of::<Self>()) as isize;
@@ -80,7 +84,7 @@ impl<T: Foo + Component<Storage = TableStorage>> ComponentWithTrait<dyn Foo> for
     }
 }
 
-impl<Trait: ?Sized + 'static> FetchState for TraitComponentRegistry<Trait> {
+impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
         fn error<T: ?Sized + 'static>() -> ! {
@@ -100,13 +104,13 @@ impl<Trait: ?Sized + 'static> FetchState for TraitComponentRegistry<Trait> {
     }
 }
 
-pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + 'static> {
+pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     table_components: Option<Ptr<'w>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     cast_dyn: Option<unsafe fn(Ptr, usize) -> &Trait>,
 }
 
-unsafe impl<'w, Trait: ?Sized + 'static> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = TraitComponentRegistry<Trait>;
 
