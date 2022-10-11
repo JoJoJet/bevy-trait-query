@@ -104,7 +104,7 @@ macro_rules! impl_dyn_query {
 
         unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
             type ReadOnly = Self;
-            type State = TraitComponentRegistry<dyn $trait>;
+            type State = $crate::TraitComponentRegistry<dyn $trait>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -116,13 +116,13 @@ macro_rules! impl_dyn_query {
         unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
-            type Fetch = ReadTraitComponentsFetch<'w, dyn $trait>;
-            type _State = TraitComponentRegistry<dyn $trait>;
+            type Fetch = $crate::ReadTraitComponentsFetch<'w, dyn $trait>;
+            type _State = $crate::TraitComponentRegistry<dyn $trait>;
         }
 
         unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
             type ReadOnly = &'w dyn $trait;
-            type State = TraitComponentRegistry<dyn $trait>;
+            type State = $crate::TraitComponentRegistry<dyn $trait>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -132,8 +132,8 @@ macro_rules! impl_dyn_query {
         }
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
-            type Fetch = WriteTraitComponentsFetch<'w, dyn $trait>;
-            type _State = TraitComponentRegistry<dyn $trait>;
+            type Fetch = $crate::WriteTraitComponentsFetch<'w, dyn $trait>;
+            type _State = $crate::TraitComponentRegistry<dyn $trait>;
         }
     };
 }
