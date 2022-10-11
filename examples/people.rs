@@ -1,21 +1,6 @@
 use bevy::prelude::*;
 use bevy_trait_query::*;
 
-fn main() {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins)
-        // Register the components with the trait.
-        .register_component_as::<dyn Person, Beans>()
-        .register_component_as::<dyn Person, Reggie>()
-        // Add systems.
-        .add_startup_system(setup)
-        .add_system(print_info)
-        .add_system(age_up.after(print_info))
-        .add_system(change_name.after(age_up));
-    app.update();
-    app.update();
-}
-
 /// Define a trait for our components to implement.
 pub trait Person: 'static {
     fn name(&self) -> &str;
@@ -54,6 +39,21 @@ impl Person for Reggie {
     fn set_age(&mut self, age: u32) {
         self.0 = age;
     }
+}
+
+fn main() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        // Register the components with the trait.
+        .register_component_as::<dyn Person, Beans>()
+        .register_component_as::<dyn Person, Reggie>()
+        // Add systems.
+        .add_startup_system(setup)
+        .add_system(print_info)
+        .add_system(age_up.after(print_info))
+        .add_system(change_name.after(age_up));
+    app.update();
+    app.update();
 }
 
 fn setup(mut commands: Commands) {
