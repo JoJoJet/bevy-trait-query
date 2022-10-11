@@ -13,7 +13,7 @@ use bevy::{
 
 pub trait DynQuery: 'static {}
 
-pub trait DynQueryMarker<Trait: ?Sized + 'static> {
+pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
     type Covered: Component<Storage = TableStorage>;
     unsafe fn get_dyn(_: Ptr, index: usize) -> &Trait;
     unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Trait;
