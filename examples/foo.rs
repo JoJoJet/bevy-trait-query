@@ -13,8 +13,6 @@ fn main() {
     app.update();
     app.update();
 
-    panic!();
-
     fn setup(mut commands: Commands) {
         commands.spawn().insert(Bar("Garbanzo".to_owned(), 7));
         commands.spawn().insert(Bar("Garbanzo".to_owned(), 14));
