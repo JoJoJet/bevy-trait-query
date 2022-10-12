@@ -15,8 +15,8 @@ pub trait DynQuery: 'static {}
 
 pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
     type Covered: Component<Storage = TableStorage>;
-    unsafe fn get_dyn(_: Ptr, index: usize) -> &Trait;
-    unsafe fn get_dyn_mut(_: PtrMut, index: usize) -> &mut Trait;
+    unsafe fn get_dyn(_: Ptr) -> &Trait;
+    unsafe fn get_dyn_mut(_: PtrMut) -> &mut Trait;
 }
 
 pub trait RegisterExt {
@@ -36,12 +36,14 @@ impl RegisterExt for World {
                 components: vec![],
                 cast_dyn: vec![],
                 cast_dyn_mut: vec![],
+                sizes: vec![],
                 marker: PhantomData,
             })
             .into_inner();
         registry.components.push(component_id);
         registry.cast_dyn.push(<(C,)>::get_dyn);
         registry.cast_dyn_mut.push(<(C,)>::get_dyn_mut);
+        registry.sizes.push(std::mem::size_of::<C>());
         self
     }
 }
@@ -58,8 +60,10 @@ impl RegisterExt for App {
 
 pub struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
     components: Vec<ComponentId>,
-    cast_dyn: Vec<unsafe fn(Ptr, usize) -> &Trait>,
-    cast_dyn_mut: Vec<unsafe fn(PtrMut, usize) -> &mut Trait>,
+    cast_dyn: Vec<unsafe fn(Ptr) -> &Trait>,
+    cast_dyn_mut: Vec<unsafe fn(PtrMut) -> &mut Trait>,
+    /// Size of each component in bytes
+    sizes: Vec<usize>,
     marker: PhantomData<fn() -> Trait>,
 }
 
@@ -69,6 +73,7 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
             components: self.components.clone(),
             cast_dyn: self.cast_dyn.clone(),
             cast_dyn_mut: self.cast_dyn_mut.clone(),
+            sizes: self.sizes.clone(),
             marker: PhantomData,
         }
     }
@@ -92,13 +97,11 @@ macro_rules! impl_dyn_query {
             $crate::DynQueryMarker<dyn $trait> for (T,)
         {
             type Covered = T;
-            unsafe fn get_dyn(ptr: $crate::imports::Ptr, index: usize) -> &dyn $trait {
-                let offset = (index * std::mem::size_of::<Self>()) as isize;
-                ptr.byte_offset(offset).deref::<T>()
+            unsafe fn get_dyn(ptr: $crate::imports::Ptr) -> &dyn $trait {
+                ptr.deref::<T>()
             }
-            unsafe fn get_dyn_mut(ptr: $crate::imports::PtrMut, index: usize) -> &mut dyn $trait {
-                let offset = (index * std::mem::size_of::<Self>()) as isize;
-                ptr.byte_offset(offset).deref_mut::<T>()
+            unsafe fn get_dyn_mut(ptr: $crate::imports::PtrMut) -> &mut dyn $trait {
+                ptr.deref_mut::<T>()
             }
         }
 
@@ -161,7 +164,8 @@ impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
 pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     table_components: Option<Ptr<'w>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    cast_dyn: Option<unsafe fn(Ptr, usize) -> &Trait>,
+    cast_dyn: Option<unsafe fn(Ptr) -> &Trait>,
+    size_bytes: usize,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
@@ -178,6 +182,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
             table_components: None,
             entity_table_rows: None,
             cast_dyn: None,
+            size_bytes: 0,
         }
     }
 
@@ -192,10 +197,13 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn) {
+        for ((&component, &cast), &size) in
+            std::iter::zip(&state.components, &state.cast_dyn).zip(&state.sizes)
+        {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(cast);
+                self.size_bytes = size;
                 return;
             }
         }
@@ -210,15 +218,18 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
             .zip(self.cast_dyn)
             .unwrap();
         let table_row = *entity_table_rows.get(archetype_index);
-        cast_dyn(table_components, table_row)
+        let ptr = table_components.byte_add(table_row * self.size_bytes);
+        cast_dyn(ptr)
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn) {
+        for ((&component, &cast), &size) in
+            std::iter::zip(&state.components, &state.cast_dyn).zip(&state.sizes)
+        {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(cast);
-                return;
+                self.size_bytes = size;
             }
         }
         // At least one of the components must be present in the table.
@@ -227,7 +238,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         let (table_components, cast_dyn) = self.table_components.zip(self.cast_dyn).unwrap();
-        cast_dyn(table_components, table_row)
+        let ptr = table_components.byte_add(table_row * self.size_bytes);
+        cast_dyn(ptr)
     }
 
     fn update_component_access(
@@ -260,7 +272,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
 pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     table_components: Option<Ptr<'w>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    cast_dyn: Option<unsafe fn(PtrMut, usize) -> &mut Trait>,
+    cast_dyn: Option<unsafe fn(PtrMut) -> &mut Trait>,
+    size_bytes: usize,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetch<'w, Trait> {
@@ -277,6 +290,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             table_components: None,
             entity_table_rows: None,
             cast_dyn: None,
+            size_bytes: 0,
         }
     }
 
@@ -291,10 +305,13 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn_mut) {
+        for ((&component, &cast), &size) in
+            std::iter::zip(&state.components, &state.cast_dyn_mut).zip(&state.sizes)
+        {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(cast);
+                self.size_bytes = size;
                 return;
             }
         }
@@ -309,15 +326,19 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             .zip(self.cast_dyn)
             .unwrap();
         let table_row = *entity_table_rows.get(archetype_index);
+        let ptr = table_components.byte_add(table_row * self.size_bytes);
         // Is `assert_unique` correct here??
-        cast_dyn(table_components.assert_unique(), table_row)
+        cast_dyn(ptr.assert_unique())
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for (&component, &cast) in std::iter::zip(&state.components, &state.cast_dyn_mut) {
+        for ((&component, &cast), &size) in
+            std::iter::zip(&state.components, &state.cast_dyn_mut).zip(&state.sizes)
+        {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(cast);
+                self.size_bytes = size;
                 return;
             }
         }
@@ -327,8 +348,9 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         let (table_components, cast_dyn) = self.table_components.zip(self.cast_dyn).unwrap();
+        let ptr = table_components.byte_add(table_row * self.size_bytes);
         // Is `assert_unique` correct here??
-        cast_dyn(table_components.assert_unique(), table_row)
+        cast_dyn(ptr.assert_unique())
     }
 
     fn update_component_access(
