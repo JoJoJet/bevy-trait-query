@@ -1,6 +1,6 @@
 #![allow(clippy::all)]
 
-use bevy::ecs::prelude::*;
+use bevy::prelude::*;
 use bevy_trait_query::*;
 use criterion::*;
 use std::fmt::Display;
@@ -53,10 +53,14 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..5_000 {
-            world.spawn().insert(RecA { messages: vec![] });
+            world
+                .spawn()
+                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
         }
         for _ in 0..5_000 {
-            world.spawn().insert(RecB { messages: vec![] });
+            world
+                .spawn()
+                .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
         }
 
         let query = world.query::<All<&dyn Messages>>();
@@ -69,9 +73,11 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..10_000 {
-            world
-                .spawn()
-                .insert_bundle((RecA { messages: vec![] }, RecB { messages: vec![] }));
+            world.spawn().insert_bundle((
+                Name::new("Hello"),
+                RecA { messages: vec![] },
+                RecB { messages: vec![] },
+            ));
         }
 
         let query = world.query::<All<&dyn Messages>>();
@@ -85,15 +91,21 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..2_500 {
-            world.spawn().insert(RecA { messages: vec![] });
-        }
-        for _ in 0..2_500 {
-            world.spawn().insert(RecB { messages: vec![] });
-        }
-        for _ in 0..5_000 {
             world
                 .spawn()
-                .insert_bundle((RecA { messages: vec![] }, RecB { messages: vec![] }));
+                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
+        }
+        for _ in 0..2_500 {
+            world
+                .spawn()
+                .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
+        }
+        for _ in 0..5_000 {
+            world.spawn().insert_bundle((
+                Name::new("Hello"),
+                RecA { messages: vec![] },
+                RecB { messages: vec![] },
+            ));
         }
 
         let query = world.query::<All<&dyn Messages>>();
