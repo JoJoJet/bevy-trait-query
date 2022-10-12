@@ -1,7 +1,5 @@
 #![allow(clippy::all)]
 
-use std::marker::PhantomData;
-
 use bevy::{
     ecs::{
         component::{ComponentId, TableStorage},
@@ -37,7 +35,6 @@ impl RegisterExt for World {
                 cast_dyn: vec![],
                 cast_dyn_mut: vec![],
                 sizes: vec![],
-                marker: PhantomData,
             })
             .into_inner();
         registry.components.push(component_id);
@@ -64,7 +61,6 @@ pub struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
     cast_dyn_mut: Vec<unsafe fn(PtrMut) -> &mut Trait>,
     /// Size of each component in bytes
     sizes: Vec<usize>,
-    marker: PhantomData<fn() -> Trait>,
 }
 
 impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
@@ -74,7 +70,6 @@ impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
             cast_dyn: self.cast_dyn.clone(),
             cast_dyn_mut: self.cast_dyn_mut.clone(),
             sizes: self.sizes.clone(),
-            marker: PhantomData,
         }
     }
 }
