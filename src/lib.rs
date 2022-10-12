@@ -317,7 +317,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype(
         &mut self,
