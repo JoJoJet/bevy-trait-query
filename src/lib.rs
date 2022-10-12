@@ -3,7 +3,7 @@
 use bevy::{
     ecs::{
         component::{ComponentId, TableStorage},
-        query::{Fetch, FetchState},
+        query::{Fetch, FetchState, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
     },
     prelude::*,
     ptr::{Ptr, PtrMut, ThinSlicePtr},
@@ -399,6 +399,187 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             }
         }
     }
+}
+
+/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
+pub struct All<T: ?Sized>(T);
+
+#[doc(hidden)]
+pub struct ReadAllTraitComponentsFetch<'w, Trait: ?Sized> {
+    table_components: Vec<Ptr<'w>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    size_bytes: Vec<usize>,
+    dyn_ctors: Vec<DynCtor<Trait>>,
+}
+
+pub struct ReadTraits<'w, Trait: ?Sized> {
+    trait_objects: Vec<&'w Trait>,
+}
+
+#[doc(hidden)]
+pub struct ReadTraitsIter<'world, 'local, Trait: ?Sized> {
+    inner: std::slice::Iter<'local, &'world Trait>,
+}
+
+impl<'w, 'l, Trait: ?Sized> Iterator for ReadTraitsIter<'w, 'l, Trait> {
+    type Item = &'w Trait;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().copied()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'w, Trait: ?Sized> IntoIterator for ReadTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = std::vec::IntoIter<&'w Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.trait_objects.into_iter()
+    }
+}
+impl<'w, 'a, Trait: ?Sized> IntoIterator for &'a ReadTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = ReadTraitsIter<'w, 'a, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        ReadTraitsIter {
+            inner: self.trait_objects.iter(),
+        }
+    }
+}
+
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFetch<'w, Trait> {
+    type Item = ReadTraits<'w, Trait>;
+    type State = DynQueryState<Trait>;
+
+    unsafe fn init(
+        _world: &'w World,
+        _state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        Self {
+            table_components: vec![],
+            entity_table_rows: None,
+            size_bytes: vec![],
+            dyn_ctors: vec![],
+        }
+    }
+
+    const IS_DENSE: bool = false;
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn set_archetype(
+        &mut self,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
+        tables: &'w bevy::ecs::storage::Tables,
+    ) {
+        self.table_components.clear();
+        self.size_bytes.clear();
+        self.dyn_ctors.clear();
+
+        self.entity_table_rows = Some(archetype.entity_table_rows().into());
+        let table = &tables[archetype.table_id()];
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+            if let Some(column) = table.get_column(component) {
+                self.table_components.push(column.get_data_ptr());
+                self.size_bytes.push(meta.size_bytes);
+                self.dyn_ctors.push(meta.dyn_ctor);
+            }
+        }
+        // At least one component must match.
+        assert!(!self.table_components.is_empty());
+    }
+
+    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+        let entity_table_rows = self
+            .entity_table_rows
+            .unwrap_or_else(|| debug_unreachable());
+        let table_row = *entity_table_rows.get(archetype_index);
+
+        let mut trait_objects = Vec::with_capacity(self.table_components.len());
+        for ((&table_components, &dyn_ctor), &size_bytes) in
+            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
+        {
+            let ptr = table_components.byte_add(table_row * size_bytes);
+            trait_objects.push(dyn_ctor.cast(ptr));
+        }
+
+        ReadTraits { trait_objects }
+    }
+
+    unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        self.table_components.clear();
+        self.size_bytes.clear();
+        self.dyn_ctors.clear();
+
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+            if let Some(column) = table.get_column(component) {
+                self.table_components.push(column.get_data_ptr());
+                self.size_bytes.push(meta.size_bytes);
+                self.dyn_ctors.push(meta.dyn_ctor);
+            }
+        }
+        // At least one component must match.
+        assert!(!self.table_components.is_empty());
+    }
+
+    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
+        let mut trait_objects = Vec::with_capacity(self.table_components.len());
+        for ((&table_components, &dyn_ctor), &size_bytes) in
+            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
+        {
+            let ptr = table_components.byte_add(table_row * size_bytes);
+            trait_objects.push(dyn_ctor.cast(ptr));
+        }
+
+        ReadTraits { trait_objects }
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        for &component in &*state.components {
+            assert!(
+                !access.access().has_write(component),
+                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                    std::any::type_name::<Trait>(),
+            );
+            access.add_read(component);
+        }
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &bevy::ecs::archetype::Archetype,
+        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+    ) {
+        for &component in &*state.components {
+            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+                access.add_read(archetype_component_id);
+            }
+        }
+    }
+}
+
+unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w Trait> {
+    type ReadOnly = Self;
+    type State = DynQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
+}
+
+unsafe impl<Trait: ?Sized + DynQuery> ReadOnlyWorldQuery for All<&Trait> {}
+
+impl<'w, Trait: ?Sized + DynQuery> WorldQueryGats<'w> for All<&Trait> {
+    type Fetch = ReadAllTraitComponentsFetch<'w, Trait>;
+    type _State = DynQueryState<Trait>;
 }
 
 #[track_caller]
