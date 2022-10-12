@@ -448,6 +448,14 @@ impl<'w, 'a, Trait: ?Sized> IntoIterator for &'a ReadTraits<'w, Trait> {
     }
 }
 
+#[doc(hidden)]
+pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized> {
+    table_components: Vec<Ptr<'w>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    size_bytes: Vec<usize>,
+    dyn_ctors: Vec<DynCtor<Trait>>,
+}
+
 pub struct WriteTraits<'w, Trait: ?Sized> {
     trait_objects: Vec<&'w mut Trait>,
 }
@@ -598,14 +606,6 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
             }
         }
     }
-}
-
-#[doc(hidden)]
-pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized> {
-    table_components: Vec<Ptr<'w>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    size_bytes: Vec<usize>,
-    dyn_ctors: Vec<DynCtor<Trait>>,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsFetch<'w, Trait> {
