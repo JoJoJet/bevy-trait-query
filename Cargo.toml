@@ -14,3 +14,7 @@ criterion = "0.4"
 [[bench]]
 name = "universal"
 harness = false
+
+[[bench]]
+name = "existential"
+harness = false

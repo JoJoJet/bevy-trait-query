@@ -42,7 +42,7 @@ impl Messages for RecB {
     }
 }
 
-pub struct Benchmark<'w>(World, QueryState<All<&'w dyn Messages>>);
+pub struct Benchmark<'w>(World, QueryState<&'w dyn Messages>);
 
 impl<'w> Benchmark<'w> {
     // Each entity only has one component in practice.
@@ -63,7 +63,7 @@ impl<'w> Benchmark<'w> {
                 .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query::<&dyn Messages>();
         Self(world, query)
     }
     fn multiple() -> Self {
@@ -80,7 +80,7 @@ impl<'w> Benchmark<'w> {
             ));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query::<&dyn Messages>();
         Self(world, query)
     }
     // Queries with only one, and queries with mutliple.
@@ -108,31 +108,29 @@ impl<'w> Benchmark<'w> {
             ));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query::<&dyn Messages>();
         Self(world, query)
     }
 
     pub fn run(&mut self) {
-        for all in self.1.iter_mut(&mut self.0) {
-            for x in all {
-                criterion::black_box(x);
-            }
+        for x in self.1.iter_mut(&mut self.0) {
+            criterion::black_box(x);
         }
     }
 }
 
 pub fn one(c: &mut Criterion) {
     let mut benchmark = Benchmark::one();
-    c.bench_function("universal-one", |b| b.iter(|| benchmark.run()));
+    c.bench_function("exisential-one", |b| b.iter(|| benchmark.run()));
 }
 pub fn multiple(c: &mut Criterion) {
     let mut benchmark = Benchmark::multiple();
-    c.bench_function("universal-multiple", |b| b.iter(|| benchmark.run()));
+    c.bench_function("exisential-multiple", |b| b.iter(|| benchmark.run()));
 }
 pub fn distributed(c: &mut Criterion) {
     let mut benchmark = Benchmark::distributed();
-    c.bench_function("universal-distributed", |b| b.iter(|| benchmark.run()));
+    c.bench_function("exisential-distributed", |b| b.iter(|| benchmark.run()));
 }
 
-criterion_group!(universal, one, multiple, distributed);
-criterion_main!(universal);
+criterion_group!(existential, one, multiple, distributed);
+criterion_main!(existential);
