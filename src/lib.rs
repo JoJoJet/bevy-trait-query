@@ -55,7 +55,7 @@ impl RegisterExt for App {
     }
 }
 
-pub struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
+struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
     // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
     meta: Vec<TraitImplMeta<Trait>>,
@@ -72,15 +72,6 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
     #[inline(always)]
     fn clone(&self) -> Self {
         Self { ..*self }
-    }
-}
-
-impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
-    fn clone(&self) -> Self {
-        Self {
-            components: self.components.clone(),
-            meta: self.meta.clone(),
-        }
     }
 }
 
@@ -112,7 +103,7 @@ macro_rules! impl_dyn_query {
 
         unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
             type ReadOnly = Self;
-            type State = $crate::TraitComponentRegistry<dyn $trait>;
+            type State = $crate::DynQueryState<dyn $trait>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -125,12 +116,12 @@ macro_rules! impl_dyn_query {
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
             type Fetch = $crate::ReadTraitComponentsFetch<'w, dyn $trait>;
-            type _State = $crate::TraitComponentRegistry<dyn $trait>;
+            type _State = $crate::DynQueryState<dyn $trait>;
         }
 
         unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
             type ReadOnly = &'w dyn $trait;
-            type State = $crate::TraitComponentRegistry<dyn $trait>;
+            type State = $crate::DynQueryState<dyn $trait>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -141,12 +132,18 @@ macro_rules! impl_dyn_query {
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
             type Fetch = $crate::WriteTraitComponentsFetch<'w, dyn $trait>;
-            type _State = $crate::TraitComponentRegistry<dyn $trait>;
+            type _State = $crate::DynQueryState<dyn $trait>;
         }
     };
 }
 
-impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
+#[doc(hidden)]
+pub struct DynQueryState<Trait: ?Sized> {
+    components: Box<[ComponentId]>,
+    meta: Box<[TraitImplMeta<Trait>]>,
+}
+
+impl<Trait: ?Sized + DynQuery> FetchState for DynQueryState<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
         fn error<T: ?Sized + 'static>() -> ! {
@@ -156,10 +153,13 @@ impl<Trait: ?Sized + DynQuery> FetchState for TraitComponentRegistry<Trait> {
             )
         }
 
-        world
+        let registry = world
             .get_resource::<TraitComponentRegistry<Trait>>()
-            .unwrap_or_else(|| error::<Trait>())
-            .clone()
+            .unwrap_or_else(|| error::<Trait>());
+        Self {
+            components: registry.components.clone().into_boxed_slice(),
+            meta: registry.meta.clone().into_boxed_slice(),
+        }
     }
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.components.iter().copied().any(set_contains_id)
@@ -175,7 +175,7 @@ pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
     type Item = &'w Trait;
-    type State = TraitComponentRegistry<Trait>;
+    type State = DynQueryState<Trait>;
 
     unsafe fn init(
         _world: &'w World,
@@ -202,7 +202,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(meta.cast);
@@ -226,7 +226,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(meta.cast);
@@ -247,7 +247,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &state.components {
+        for &component in &*state.components {
             assert!(
                 !access.access().has_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -262,7 +262,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &state.components {
+        for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
                 access.add_read(archetype_component_id);
             }
@@ -279,7 +279,7 @@ pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetch<'w, Trait> {
     type Item = &'w mut Trait;
-    type State = TraitComponentRegistry<Trait>;
+    type State = DynQueryState<Trait>;
 
     unsafe fn init(
         _world: &'w World,
@@ -306,7 +306,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(meta.cast_mut);
@@ -331,7 +331,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
                 self.cast_dyn = Some(meta.cast_mut);
@@ -354,7 +354,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &state.components {
+        for &component in &*state.components {
             assert!(
                 !access.access().has_write(component),
                 "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
@@ -369,7 +369,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &state.components {
+        for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
                 access.add_write(archetype_component_id);
             }
