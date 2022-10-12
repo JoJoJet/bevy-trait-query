@@ -211,7 +211,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
             }
         }
         // At least one of the components must be present in the table.
-        unreachable!()
+        debug_unreachable()
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
@@ -219,7 +219,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
             .entity_table_rows
             .zip(self.table_components)
             .zip(self.cast_dyn)
-            .unwrap();
+            .unwrap_or_else(|| debug_unreachable());
         let table_row = *entity_table_rows.get(archetype_index);
         let ptr = table_components.byte_add(table_row * self.size_bytes);
         cast_dyn(ptr)
@@ -234,11 +234,14 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
             }
         }
         // At least one of the components must be present in the table.
-        unreachable!();
+        debug_unreachable()
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let (table_components, cast_dyn) = self.table_components.zip(self.cast_dyn).unwrap();
+        let (table_components, cast_dyn) = self
+            .table_components
+            .zip(self.cast_dyn)
+            .unwrap_or_else(|| debug_unreachable());
         let ptr = table_components.byte_add(table_row * self.size_bytes);
         cast_dyn(ptr)
     }
@@ -315,7 +318,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             }
         }
         // At least one of the components must be present in the table.
-        unreachable!()
+        debug_unreachable()
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
@@ -323,7 +326,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             .entity_table_rows
             .zip(self.table_components)
             .zip(self.cast_dyn)
-            .unwrap();
+            .unwrap_or_else(|| debug_unreachable());
         let table_row = *entity_table_rows.get(archetype_index);
         let ptr = table_components.byte_add(table_row * self.size_bytes);
         // Is `assert_unique` correct here??
@@ -340,11 +343,14 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             }
         }
         // At least one of the components must be present in the table.
-        unreachable!();
+        debug_unreachable()
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let (table_components, cast_dyn) = self.table_components.zip(self.cast_dyn).unwrap();
+        let (table_components, cast_dyn) = self
+            .table_components
+            .zip(self.cast_dyn)
+            .unwrap_or_else(|| debug_unreachable());
         let ptr = table_components.byte_add(table_row * self.size_bytes);
         // Is `assert_unique` correct here??
         cast_dyn(ptr.assert_unique())
@@ -375,4 +381,14 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
             }
         }
     }
+}
+
+#[track_caller]
+#[inline(always)]
+unsafe fn debug_unreachable() -> ! {
+    #[cfg(debug_assertions)]
+    unreachable!();
+
+    #[cfg(not(debug_assertions))]
+    std::hint::unreachable_unchecked();
 }
