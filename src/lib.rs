@@ -32,15 +32,15 @@ impl RegisterExt for World {
         let registry = self
             .get_resource_or_insert_with(|| TraitComponentRegistry::<Trait> {
                 components: vec![],
-                cast_dyn: vec![],
-                cast_dyn_mut: vec![],
-                sizes: vec![],
+                meta: vec![],
             })
             .into_inner();
         registry.components.push(component_id);
-        registry.cast_dyn.push(<(C,)>::get_dyn);
-        registry.cast_dyn_mut.push(<(C,)>::get_dyn_mut);
-        registry.sizes.push(std::mem::size_of::<C>());
+        registry.meta.push(TraitImplMeta {
+            size_bytes: std::mem::size_of::<C>(),
+            cast: <(C,)>::get_dyn,
+            cast_mut: <(C,)>::get_dyn_mut,
+        });
         self
     }
 }
@@ -56,20 +56,30 @@ impl RegisterExt for App {
 }
 
 pub struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
+    // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
-    cast_dyn: Vec<unsafe fn(Ptr) -> &Trait>,
-    cast_dyn_mut: Vec<unsafe fn(PtrMut) -> &mut Trait>,
-    /// Size of each component in bytes
-    sizes: Vec<usize>,
+    meta: Vec<TraitImplMeta<Trait>>,
+}
+
+/// Stores data about an impl of a trait
+struct TraitImplMeta<Trait: ?Sized> {
+    size_bytes: usize,
+    cast: unsafe fn(Ptr) -> &Trait,
+    cast_mut: unsafe fn(PtrMut) -> &mut Trait,
+}
+
+impl<T: ?Sized> Clone for TraitImplMeta<T> {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self { ..*self }
+    }
 }
 
 impl<T: ?Sized + DynQuery> Clone for TraitComponentRegistry<T> {
     fn clone(&self) -> Self {
         Self {
             components: self.components.clone(),
-            cast_dyn: self.cast_dyn.clone(),
-            cast_dyn_mut: self.cast_dyn_mut.clone(),
-            sizes: self.sizes.clone(),
+            meta: self.meta.clone(),
         }
     }
 }
@@ -192,13 +202,11 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for ((&component, &cast), &size) in
-            std::iter::zip(&state.components, &state.cast_dyn).zip(&state.sizes)
-        {
+        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
-                self.cast_dyn = Some(cast);
-                self.size_bytes = size;
+                self.cast_dyn = Some(meta.cast);
+                self.size_bytes = meta.size_bytes;
                 return;
             }
         }
@@ -218,13 +226,11 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for ((&component, &cast), &size) in
-            std::iter::zip(&state.components, &state.cast_dyn).zip(&state.sizes)
-        {
+        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
-                self.cast_dyn = Some(cast);
-                self.size_bytes = size;
+                self.cast_dyn = Some(meta.cast);
+                self.size_bytes = meta.size_bytes;
             }
         }
         // At least one of the components must be present in the table.
@@ -300,13 +306,11 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     ) {
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
-        for ((&component, &cast), &size) in
-            std::iter::zip(&state.components, &state.cast_dyn_mut).zip(&state.sizes)
-        {
+        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
-                self.cast_dyn = Some(cast);
-                self.size_bytes = size;
+                self.cast_dyn = Some(meta.cast_mut);
+                self.size_bytes = meta.size_bytes;
                 return;
             }
         }
@@ -327,13 +331,11 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        for ((&component, &cast), &size) in
-            std::iter::zip(&state.components, &state.cast_dyn_mut).zip(&state.sizes)
-        {
+        for (&component, meta) in std::iter::zip(&state.components, &state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
-                self.cast_dyn = Some(cast);
-                self.size_bytes = size;
+                self.cast_dyn = Some(meta.cast_mut);
+                self.size_bytes = meta.size_bytes;
                 return;
             }
         }
