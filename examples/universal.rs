@@ -1,9 +1,12 @@
+use std::fmt::Display;
+
 use bevy::prelude::*;
 use bevy_trait_query::*;
 
 /// Define a trait for our components to implement.
 pub trait Messages: 'static {
     fn messages(&self) -> &[String];
+    fn send_message(&mut self, _: &dyn Display);
 }
 
 // Add `WorldQuery` impls for `dyn Person`
@@ -18,6 +21,9 @@ impl Messages for RecA {
     fn messages(&self) -> &[String] {
         &self.messages
     }
+    fn send_message(&mut self, msg: &dyn Display) {
+        self.messages.push(msg.to_string());
+    }
 }
 
 #[derive(Component)]
@@ -29,6 +35,9 @@ impl Messages for RecB {
     fn messages(&self) -> &[String] {
         &self.messages
     }
+    fn send_message(&mut self, msg: &dyn Display) {
+        self.messages.push(msg.to_string());
+    }
 }
 
 fn main() {
@@ -39,7 +48,9 @@ fn main() {
         .register_component_as::<dyn Messages, RecB>()
         // Add systems.
         .add_startup_system(setup)
-        .add_system(print_messages);
+        .add_system(print_messages)
+        .add_system(send_messages.after(print_messages));
+    app.update();
     app.update();
 }
 
@@ -62,12 +73,22 @@ fn setup(mut commands: Commands) {
 
 // Prints the messages in every receiver.
 fn print_messages(receivers: Query<All<&dyn Messages>>) {
+    println!("New frame:");
     for receiver in &receivers {
         println!("Entity:");
         for m in receiver {
             println!("{:?}", m.messages());
         }
         println!();
+    }
+    println!();
+}
+
+fn send_messages(mut receivers: Query<All<&mut dyn Messages>>) {
+    for (i, receiver) in receivers.iter_mut().enumerate() {
+        for m in receiver {
+            m.send_message(&i);
+        }
     }
 }
 
