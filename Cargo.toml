@@ -22,3 +22,7 @@ harness = false
 [[bench]]
 name = "existential"
 harness = false
+
+[[bench]]
+name = "fragmented"
+harness = false
