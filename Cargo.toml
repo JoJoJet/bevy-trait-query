@@ -12,6 +12,10 @@ bevy = "0.8.1"
 criterion = "0.4"
 
 [[bench]]
+name = "concrete"
+harness = false
+
+[[bench]]
 name = "universal"
 harness = false
 
