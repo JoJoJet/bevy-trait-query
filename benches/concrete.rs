@@ -42,7 +42,7 @@ impl Messages for RecB {
     }
 }
 
-pub struct Benchmark<'w>(World, QueryState<&'w RecA>);
+pub struct Benchmark<'w>(World, QueryState<&'w RecA>, Vec<usize>);
 
 impl<'w> Benchmark<'w> {
     // Each entity only has one component in practice.
@@ -55,8 +55,8 @@ impl<'w> Benchmark<'w> {
                 .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
         }
 
-        let query = world.query::<&RecA>();
-        Self(world, query)
+        let query = world.query();
+        Self(world, query, default())
     }
     fn multiple() -> Self {
         let mut world = World::new();
@@ -69,49 +69,28 @@ impl<'w> Benchmark<'w> {
             ));
         }
 
-        let query = world.query::<&RecA>();
-        Self(world, query)
-    }
-    // Queries with only one, and queries with mutliple.
-    pub fn distributed() -> Self {
-        let mut world = World::new();
-
-        for _ in 0..2_500 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
-        }
-        for _ in 0..2_500 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
-        }
-        for _ in 0..5_000 {
-            world.spawn().insert_bundle((
-                Name::new("Hello"),
-                RecA { messages: vec![] },
-                RecB { messages: vec![] },
-            ));
-        }
-
-        let query = world.query::<&RecA>();
-        Self(world, query)
+        let query = world.query();
+        Self(world, query, default())
     }
 
     pub fn run(&mut self) {
-        for x in self.1.iter_mut(&mut self.0) {
-            criterion::black_box(x);
+        let mut output = Vec::new();
+        for x in self.1.iter(&mut self.0) {
+            output.push(x.messages().len());
         }
+        self.2 = output;
     }
 }
 
 pub fn one(c: &mut Criterion) {
     let mut benchmark = Benchmark::one();
     c.bench_function("concrete-one", |b| b.iter(|| benchmark.run()));
+    eprintln!("{}", benchmark.2.len());
 }
 pub fn multiple(c: &mut Criterion) {
     let mut benchmark = Benchmark::multiple();
     c.bench_function("concrete-multiple", |b| b.iter(|| benchmark.run()));
+    eprintln!("{}", benchmark.2.len());
 }
 
 criterion_group!(concrete, one, multiple);

@@ -42,7 +42,7 @@ impl Messages for RecB {
     }
 }
 
-pub struct Benchmark<'w>(World, QueryState<&'w dyn Messages>);
+pub struct Benchmark<'w>(World, QueryState<&'w dyn Messages>, Vec<usize>);
 
 impl<'w> Benchmark<'w> {
     // Each entity only has one component in practice.
@@ -64,7 +64,7 @@ impl<'w> Benchmark<'w> {
         }
 
         let query = world.query::<&dyn Messages>();
-        Self(world, query)
+        Self(world, query, default())
     }
     fn multiple() -> Self {
         let mut world = World::new();
@@ -81,7 +81,7 @@ impl<'w> Benchmark<'w> {
         }
 
         let query = world.query::<&dyn Messages>();
-        Self(world, query)
+        Self(world, query, default())
     }
     // Queries with only one, and queries with mutliple.
     pub fn distributed() -> Self {
@@ -109,27 +109,32 @@ impl<'w> Benchmark<'w> {
         }
 
         let query = world.query::<&dyn Messages>();
-        Self(world, query)
+        Self(world, query, default())
     }
 
     pub fn run(&mut self) {
+        let mut output = Vec::new();
         for x in self.1.iter_mut(&mut self.0) {
-            criterion::black_box(x);
+            output.push(x.messages().len());
         }
+        self.2 = output;
     }
 }
 
 pub fn one(c: &mut Criterion) {
     let mut benchmark = Benchmark::one();
     c.bench_function("exisential-one", |b| b.iter(|| benchmark.run()));
+    eprintln!("{}", benchmark.2.len());
 }
 pub fn multiple(c: &mut Criterion) {
     let mut benchmark = Benchmark::multiple();
     c.bench_function("exisential-multiple", |b| b.iter(|| benchmark.run()));
+    eprintln!("{}", benchmark.2.len());
 }
 pub fn distributed(c: &mut Criterion) {
     let mut benchmark = Benchmark::distributed();
     c.bench_function("exisential-distributed", |b| b.iter(|| benchmark.run()));
+    eprintln!("{}", benchmark.2.len());
 }
 
 criterion_group!(existential, one, multiple, distributed);
