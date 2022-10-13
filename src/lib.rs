@@ -318,7 +318,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = true;
+    const IS_ARCHETYPAL: bool = false;
 
     unsafe fn set_archetype(
         &mut self,
@@ -562,7 +562,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = true;
+    const IS_ARCHETYPAL: bool = false;
 
     unsafe fn set_archetype(
         &mut self,
@@ -649,7 +649,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = true;
+    const IS_ARCHETYPAL: bool = false;
 
     unsafe fn set_archetype(
         &mut self,
