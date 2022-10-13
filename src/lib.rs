@@ -4,6 +4,7 @@ use bevy::{
     ecs::{
         component::{ComponentId, TableStorage},
         query::{Fetch, FetchState, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+        storage::Table,
     },
     prelude::*,
     ptr::{Ptr, PtrMut, ThinSlicePtr},
@@ -405,90 +406,126 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
 pub struct All<T: ?Sized>(T);
 
 #[doc(hidden)]
-pub struct ReadAllTraitComponentsFetch<'w, Trait: ?Sized> {
-    table_components: Vec<Ptr<'w>>,
+pub struct ReadAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    size_bytes: Vec<usize>,
-    dyn_ctors: Vec<DynCtor<Trait>>,
+    table: Option<&'w Table>,
 }
 
-pub struct ReadTraits<'w, Trait: ?Sized> {
-    trait_objects: Vec<&'w Trait>,
+pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    table: &'w Table,
+    table_row: usize,
 }
 
-#[doc(hidden)]
-pub struct ReadTraitsIter<'world, 'local, Trait: ?Sized> {
-    inner: std::slice::Iter<'local, &'world Trait>,
-}
-
-impl<'w, 'l, Trait: ?Sized> Iterator for ReadTraitsIter<'w, 'l, Trait> {
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
     type Item = &'w Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().copied()
-    }
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
-impl<'w, Trait: ?Sized> IntoIterator for ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = std::vec::IntoIter<&'w Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.trait_objects.into_iter()
-    }
-}
-impl<'w, 'a, Trait: ?Sized> IntoIterator for &'a ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = ReadTraitsIter<'w, 'a, Trait>;
+    type IntoIter = ReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         ReadTraitsIter {
-            inner: self.trait_objects.iter(),
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        }
+    }
+}
+
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = ReadTraitsIter<'w, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        ReadTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
         }
     }
 }
 
 #[doc(hidden)]
-pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized> {
-    table_components: Vec<Ptr<'w>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    size_bytes: Vec<usize>,
-    dyn_ctors: Vec<DynCtor<Trait>>,
+pub struct ReadTraitsIter<'a, Trait: ?Sized> {
+    components: std::slice::Iter<'a, ComponentId>,
+    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    table: &'a Table,
+    table_row: usize,
 }
 
-pub struct WriteTraits<'w, Trait: ?Sized> {
-    trait_objects: Vec<&'w mut Trait>,
+impl<'a, Trait: ?Sized> Iterator for ReadTraitsIter<'a, Trait> {
+    type Item = &'a Trait;
+    fn next(&mut self) -> Option<Self::Item> {
+        let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
+            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+        let table_components = column.get_data_ptr();
+        let trait_object = unsafe {
+            let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
+            meta.dyn_ctor.cast(ptr)
+        };
+        Some(trait_object)
+    }
 }
 
 #[doc(hidden)]
-pub struct WriteTraitsIter<'world, 'local, Trait: ?Sized> {
-    inner: std::slice::IterMut<'local, &'world mut Trait>,
+pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table: Option<&'w Table>,
 }
 
-impl<'w, 'l, Trait: ?Sized> Iterator for WriteTraitsIter<'w, 'l, Trait> {
-    type Item = &'l mut Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|x| &mut **x)
-    }
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
+pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    table: &'w Table,
+    table_row: usize,
 }
 
-impl<'w, Trait: ?Sized> IntoIterator for WriteTraits<'w, Trait> {
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
     type Item = &'w mut Trait;
-    type IntoIter = std::vec::IntoIter<&'w mut Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.trait_objects.into_iter()
-    }
-}
-impl<'w, 'a, Trait: ?Sized> IntoIterator for &'a mut WriteTraits<'w, Trait> {
-    type Item = &'a mut Trait;
-    type IntoIter = WriteTraitsIter<'w, 'a, Trait>;
+    type IntoIter = WriteTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         WriteTraitsIter {
-            inner: self.trait_objects.iter_mut(),
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
         }
+    }
+}
+
+impl<'world: 'local, 'local, Trait: ?Sized + DynQuery> IntoIterator
+    for &'local mut WriteTraits<'world, Trait>
+{
+    type Item = &'local mut Trait;
+    type IntoIter = WriteTraitsIter<'local, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        WriteTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        }
+    }
+}
+
+#[doc(hidden)]
+pub struct WriteTraitsIter<'a, Trait: ?Sized + DynQuery> {
+    components: std::slice::Iter<'a, ComponentId>,
+    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    table: &'a Table,
+    table_row: usize,
+}
+
+impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTraitsIter<'a, Trait> {
+    type Item = &'a mut Trait;
+    fn next(&mut self) -> Option<Self::Item> {
+        let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
+            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+        let table_components = column.get_data_ptr();
+        let trait_object = unsafe {
+            let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
+            meta.dyn_ctor.cast_mut(ptr.assert_unique())
+        };
+        Some(trait_object)
     }
 }
 
@@ -497,16 +534,17 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
     type State = DynQueryState<Trait>;
 
     unsafe fn init(
-        _world: &'w World,
+        world: &'w World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            table_components: vec![],
             entity_table_rows: None,
-            size_bytes: vec![],
-            dyn_ctors: vec![],
+            // Nothing will conflict with this resource reference,
+            // since no one outside of this crate can access the registry type.
+            registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
+            table: None,
         }
     }
 
@@ -515,25 +553,12 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
 
     unsafe fn set_archetype(
         &mut self,
-        state: &Self::State,
+        _state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
-        self.table_components.clear();
-        self.size_bytes.clear();
-        self.dyn_ctors.clear();
-
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
-        let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
-                self.table_components.push(column.get_data_ptr());
-                self.size_bytes.push(meta.size_bytes);
-                self.dyn_ctors.push(meta.dyn_ctor);
-            }
-        }
-        // At least one component must match.
-        assert!(!self.table_components.is_empty());
+        self.table = Some(&tables[archetype.table_id()]);
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
@@ -541,44 +566,27 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
             .entity_table_rows
             .unwrap_or_else(|| debug_unreachable());
         let table_row = *entity_table_rows.get(archetype_index);
+        let table = self.table.unwrap_or_else(|| debug_unreachable());
 
-        let mut trait_objects = Vec::with_capacity(self.table_components.len());
-        for ((&table_components, &dyn_ctor), &size_bytes) in
-            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
-        {
-            let ptr = table_components.byte_add(table_row * size_bytes);
-            trait_objects.push(dyn_ctor.cast(ptr));
+        ReadTraits {
+            registry: self.registry,
+            table,
+            table_row,
         }
-
-        ReadTraits { trait_objects }
     }
 
-    unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        self.table_components.clear();
-        self.size_bytes.clear();
-        self.dyn_ctors.clear();
-
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
-                self.table_components.push(column.get_data_ptr());
-                self.size_bytes.push(meta.size_bytes);
-                self.dyn_ctors.push(meta.dyn_ctor);
-            }
-        }
-        // At least one component must match.
-        assert!(!self.table_components.is_empty());
+    unsafe fn set_table(&mut self, _state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        self.table = Some(table);
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let mut trait_objects = Vec::with_capacity(self.table_components.len());
-        for ((&table_components, &dyn_ctor), &size_bytes) in
-            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
-        {
-            let ptr = table_components.byte_add(table_row * size_bytes);
-            trait_objects.push(dyn_ctor.cast(ptr));
-        }
+        let table = self.table.unwrap_or_else(|| debug_unreachable());
 
-        ReadTraits { trait_objects }
+        ReadTraits {
+            registry: self.registry,
+            table,
+            table_row,
+        }
     }
 
     fn update_component_access(
@@ -613,16 +621,17 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
     type State = DynQueryState<Trait>;
 
     unsafe fn init(
-        _world: &'w World,
+        world: &'w World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            table_components: vec![],
             entity_table_rows: None,
-            size_bytes: vec![],
-            dyn_ctors: vec![],
+            // Nothing will conflict with this resource reference,
+            // since no one outside of this crate can access the registry type.
+            registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
+            table: None,
         }
     }
 
@@ -631,25 +640,12 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
 
     unsafe fn set_archetype(
         &mut self,
-        state: &Self::State,
+        _state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
-        self.table_components.clear();
-        self.size_bytes.clear();
-        self.dyn_ctors.clear();
-
         self.entity_table_rows = Some(archetype.entity_table_rows().into());
-        let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
-                self.table_components.push(column.get_data_ptr());
-                self.size_bytes.push(meta.size_bytes);
-                self.dyn_ctors.push(meta.dyn_ctor);
-            }
-        }
-        // At least one component must match.
-        assert!(!self.table_components.is_empty());
+        self.table = Some(&tables[archetype.table_id()]);
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
@@ -657,44 +653,27 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
             .entity_table_rows
             .unwrap_or_else(|| debug_unreachable());
         let table_row = *entity_table_rows.get(archetype_index);
+        let table = self.table.unwrap_or_else(|| debug_unreachable());
 
-        let mut trait_objects = Vec::with_capacity(self.table_components.len());
-        for ((&table_components, &dyn_ctor), &size_bytes) in
-            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
-        {
-            let ptr = table_components.byte_add(table_row * size_bytes);
-            trait_objects.push(dyn_ctor.cast_mut(ptr.assert_unique()));
+        WriteTraits {
+            registry: self.registry,
+            table,
+            table_row,
         }
-
-        WriteTraits { trait_objects }
     }
 
-    unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
-        self.table_components.clear();
-        self.size_bytes.clear();
-        self.dyn_ctors.clear();
-
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
-                self.table_components.push(column.get_data_ptr());
-                self.size_bytes.push(meta.size_bytes);
-                self.dyn_ctors.push(meta.dyn_ctor);
-            }
-        }
-        // At least one component must match.
-        assert!(!self.table_components.is_empty());
+    unsafe fn set_table(&mut self, _state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        self.table = Some(table);
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let mut trait_objects = Vec::with_capacity(self.table_components.len());
-        for ((&table_components, &dyn_ctor), &size_bytes) in
-            std::iter::zip(&self.table_components, &self.dyn_ctors).zip(&self.size_bytes)
-        {
-            let ptr = table_components.byte_add(table_row * size_bytes);
-            trait_objects.push(dyn_ctor.cast_mut(ptr.assert_unique()));
-        }
+        let table = self.table.unwrap_or_else(|| debug_unreachable());
 
-        WriteTraits { trait_objects }
+        WriteTraits {
+            registry: self.registry,
+            table,
+            table_row,
+        }
     }
 
     fn update_component_access(
