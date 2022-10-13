@@ -492,6 +492,19 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
     }
 }
 
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &WriteTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = ReadTraitsIter<'w, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        ReadTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        }
+    }
+}
+
 impl<'world: 'local, 'local, Trait: ?Sized + DynQuery> IntoIterator
     for &'local mut WriteTraits<'world, Trait>
 {
