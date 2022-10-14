@@ -10,6 +10,9 @@ use bevy::{
     ptr::{Ptr, PtrMut, ThinSlicePtr},
 };
 
+#[cfg(test)]
+mod tests;
+
 pub trait DynQuery: 'static {}
 
 pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
