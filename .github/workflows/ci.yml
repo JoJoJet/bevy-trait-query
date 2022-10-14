@@ -1,65 +1,71 @@
-on: [push]
-
 name: CI
 
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+      - staging-squash-merge.tmp
+
+env:
+  CARGO_TERM_COLOR: always
+  NIGHTLY_TOOLCHAIN: nightly
+
 jobs:
-
-  test:
-    name: Test Suite
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-
   miri:
-    name: Miri
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-          toolchain: nightly
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          components: miri
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: miri test
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: CI job
+        # To run the tests one item at a time for troubleshooting, use
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
+        run: cargo miri test
+        env:
+          # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
+          RUSTFLAGS: -Zrandomize-layout
+          # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
+          # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
+          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
+          # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
 
-  fmt:
-    name: Rustfmt
-    runs-on: windows-latest
+  check-unused-dependencies:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-          toolchain: stable
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      - name: Installs cargo-udeps
+        run: cargo install --force cargo-udeps
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Run cargo udeps
+        run: cargo udeps
