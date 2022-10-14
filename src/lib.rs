@@ -113,7 +113,7 @@ macro_rules! impl_dyn_query {
         unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
-            type Fetch = $crate::ReadTraitComponentsFetch<'w, dyn $trait>;
+            type Fetch = $crate::ReadTraitFetch<'w, dyn $trait>;
             type _State = $crate::DynQueryState<dyn $trait>;
         }
 
@@ -129,7 +129,7 @@ macro_rules! impl_dyn_query {
         }
 
         impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
-            type Fetch = $crate::WriteTraitComponentsFetch<'w, dyn $trait>;
+            type Fetch = $crate::WriteTraitFetch<'w, dyn $trait>;
             type _State = $crate::DynQueryState<dyn $trait>;
         }
     };
@@ -186,7 +186,7 @@ impl<Trait: ?Sized> DynCtor<Trait> {
     }
 }
 
-pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct ReadTraitFetch<'w, Trait: ?Sized + DynQuery> {
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
     storage: Option<StorageType>,
@@ -199,7 +199,7 @@ pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     entities: Option<ThinSlicePtr<'w, Entity>>,
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = DynQueryState<Trait>;
 
@@ -330,7 +330,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
     }
 }
 
-pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct WriteTraitFetch<'w, Trait: ?Sized + DynQuery> {
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
     storage: Option<StorageType>,
@@ -343,7 +343,7 @@ pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     entities: Option<ThinSlicePtr<'w, Entity>>,
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
     type Item = &'w mut Trait;
     type State = DynQueryState<Trait>;
 
@@ -481,7 +481,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
 pub struct All<T: ?Sized>(T);
 
 #[doc(hidden)]
-pub struct ReadAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
@@ -590,7 +590,7 @@ impl<'a, Trait: ?Sized> Iterator for ReadSparseTraitsIter<'a, Trait> {
 }
 
 #[doc(hidden)]
-pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
@@ -720,7 +720,7 @@ impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
     }
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
     type Item = ReadTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
 
@@ -810,7 +810,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
     }
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
     type Item = WriteTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
 
@@ -914,7 +914,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w Trait> {
 unsafe impl<Trait: ?Sized + DynQuery> ReadOnlyWorldQuery for All<&Trait> {}
 
 impl<'w, Trait: ?Sized + DynQuery> WorldQueryGats<'w> for All<&Trait> {
-    type Fetch = ReadAllTraitComponentsFetch<'w, Trait>;
+    type Fetch = ReadAllTraitsFetch<'w, Trait>;
     type _State = DynQueryState<Trait>;
 }
 
@@ -930,7 +930,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w mut Trait> {
 }
 
 impl<'w, Trait: ?Sized + DynQuery> WorldQueryGats<'w> for All<&mut Trait> {
-    type Fetch = WriteAllTraitComponentsFetch<'w, Trait>;
+    type Fetch = WriteAllTraitsFetch<'w, Trait>;
     type _State = DynQueryState<Trait>;
 }
 
