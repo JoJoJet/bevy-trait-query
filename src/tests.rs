@@ -85,7 +85,6 @@ fn existential1() {
     );
 }
 
-// Prints the name and age of every `Person`.
 fn print_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
     output.0.push("All people:".to_string());
     for person in &people {
@@ -112,5 +111,83 @@ fn change_name(mut q: Query<&mut Human, With<Fem>>) {
 fn pluralize(mut q: Query<&mut Human, Without<Fem>>) {
     for mut bean in &mut q {
         bean.0.push('s');
+    }
+}
+
+#[test]
+fn universal1() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn().insert(Human("Henry".to_owned(), 22));
+    world
+        .spawn()
+        .insert_bundle((Human("Eliza".to_owned(), 31), Fem, Dolphin(6)));
+    world
+        .spawn()
+        .insert_bundle((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
+    world.spawn().insert(Dolphin(27));
+
+    let mut stage = SystemStage::parallel();
+    stage
+        .add_system(print_all_info)
+        .add_system(age_up_fem.after(print_all_info))
+        .add_system(age_up_not.after(print_all_info));
+
+    stage.run(&mut world);
+    stage.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "All people:",
+            "Henry: 22",
+            "Eliza: 31",
+            "Reginald: 6",
+            "Garbanzo: 17",
+            "Reginald: 17",
+            "Reginald: 27",
+            "",
+            "All people:",
+            "Henry: 23",
+            "Eliza: 32",
+            "Reginald: 7",
+            "Garbanzo: 18",
+            "Reginald: 18",
+            "Reginald: 28",
+            "",
+        ]
+    );
+}
+
+// Prints the name and age of every `Person`.
+fn print_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+    output.0.push("All people:".to_string());
+    for all in &people {
+        for person in all {
+            output
+                .0
+                .push(format!("{}: {}", person.name(), person.age()));
+        }
+    }
+    output.0.push(default());
+}
+
+fn age_up_fem(mut q: Query<All<&mut dyn Person>, With<Fem>>) {
+    for all in &mut q {
+        for p in all {
+            p.set_age(p.age() + 1);
+        }
+    }
+}
+
+fn age_up_not(mut q: Query<All<&mut dyn Person>, Without<Fem>>) {
+    for all in &mut q {
+        for p in all {
+            p.set_age(p.age() + 1);
+        }
     }
 }
