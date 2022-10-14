@@ -480,16 +480,6 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 pub struct All<T: ?Sized>(T);
 
-#[doc(hidden)]
-pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
-    // T::Storage = TableStorage
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    table: Option<&'w Table>,
-    // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-}
-
 pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
     // T::Storage = TableStorage
@@ -587,16 +577,6 @@ impl<'a, Trait: ?Sized> Iterator for ReadSparseTraitsIter<'a, Trait> {
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
         Some(trait_object)
     }
-}
-
-#[doc(hidden)]
-pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
-    // T::Storage = TableStorage
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    table: Option<&'w Table>,
-    // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
 }
 
 pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
@@ -720,6 +700,16 @@ impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
     }
 }
 
+#[doc(hidden)]
+pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+}
+
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
     type Item = ReadTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
@@ -808,6 +798,16 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, T
             }
         }
     }
+}
+
+#[doc(hidden)]
+pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
