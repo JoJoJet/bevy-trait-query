@@ -2,9 +2,9 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentId, TableStorage},
+        component::{ComponentId, StorageType},
         query::{Fetch, FetchState, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
-        storage::Table,
+        storage::{ComponentSparseSet, SparseSets, Table},
     },
     prelude::*,
     ptr::{Ptr, PtrMut, ThinSlicePtr},
@@ -16,7 +16,7 @@ mod tests;
 pub trait DynQuery: 'static {}
 
 pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
-    type Covered: Component<Storage = TableStorage>;
+    type Covered: Component;
     /// Casts an untyped pointer to a trait object pointer,
     /// with a vtable corresponding to `Self::Covered`.
     fn cast(_: *mut u8) -> *mut Trait;
@@ -92,9 +92,7 @@ macro_rules! impl_dyn_query {
     ($trait:ident) => {
         impl $crate::DynQuery for dyn $trait {}
 
-        impl<T: $trait + $crate::imports::Component<Storage = $crate::imports::TableStorage>>
-            $crate::DynQueryMarker<dyn $trait> for (T,)
-        {
+        impl<T: $trait + $crate::imports::Component> $crate::DynQueryMarker<dyn $trait> for (T,) {
             type Covered = T;
             fn cast(ptr: *mut u8) -> *mut dyn $trait {
                 ptr as *mut T as *mut _
@@ -166,13 +164,6 @@ impl<Trait: ?Sized + DynQuery> FetchState for DynQueryState<Trait> {
     }
 }
 
-pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
-    table_components: Option<Ptr<'w>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    size_bytes: usize,
-    dyn_ctor: Option<DynCtor<Trait>>,
-}
-
 /// Turns an untyped pointer into a trait object pointer,
 /// for a specific erased concrete type.
 struct DynCtor<Trait: ?Sized> {
@@ -195,21 +186,38 @@ impl<Trait: ?Sized> DynCtor<Trait> {
     }
 }
 
+pub struct ReadTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
+    size_bytes: usize,
+    dyn_ctor: Option<DynCtor<Trait>>,
+    storage: Option<StorageType>,
+    // T::Storage = TableStorage
+    table_components: Option<Ptr<'w>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+    component_sparse_set: Option<&'w ComponentSparseSet>,
+    entities: Option<ThinSlicePtr<'w, Entity>>,
+}
+
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = DynQueryState<Trait>;
 
     unsafe fn init(
-        _world: &'w World,
+        world: &'w World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            table_components: None,
-            entity_table_rows: None,
             size_bytes: 0,
             dyn_ctor: None,
+            storage: None,
+            table_components: None,
+            entity_table_rows: None,
+            sparse_sets: &world.storages().sparse_sets,
+            component_sparse_set: None,
+            entities: None,
         }
     }
 
@@ -222,32 +230,59 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
-        self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
         for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                self.table_components = Some(column.get_data_ptr());
+                self.storage = Some(StorageType::Table);
                 self.size_bytes = meta.size_bytes;
                 self.dyn_ctor = Some(meta.dyn_ctor);
+                self.entity_table_rows = Some(archetype.entity_table_rows().into());
+                self.table_components = Some(column.get_data_ptr());
                 return;
             }
         }
-        // At least one of the components must be present in the table.
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+            if let Some(sparse_set) = self.sparse_sets.get(component) {
+                self.storage = Some(StorageType::SparseSet);
+                self.size_bytes = meta.size_bytes;
+                self.dyn_ctor = Some(meta.dyn_ctor);
+                self.entities = Some(archetype.entities().into());
+                self.component_sparse_set = Some(sparse_set);
+                return;
+            }
+        }
+        // At least one of the components must be present in the table/sparse set.
         debug_unreachable()
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        let ((entity_table_rows, table_components), dyn_ctor) = self
-            .entity_table_rows
-            .zip(self.table_components)
-            .zip(self.dyn_ctor)
-            .unwrap_or_else(|| debug_unreachable());
-        let table_row = *entity_table_rows.get(archetype_index);
-        let ptr = table_components.byte_add(table_row * self.size_bytes);
+        let ptr = match self.storage {
+            None => debug_unreachable(),
+            Some(StorageType::Table) => {
+                let (entity_table_rows, table_components) = self
+                    .entity_table_rows
+                    .zip(self.table_components)
+                    .unwrap_or_else(|| debug_unreachable());
+                let table_row = *entity_table_rows.get(archetype_index);
+                table_components.byte_add(table_row * self.size_bytes)
+            }
+            Some(StorageType::SparseSet) => {
+                let (entities, sparse_set) = self
+                    .entities
+                    .zip(self.component_sparse_set)
+                    .unwrap_or_else(|| debug_unreachable());
+                let entity = *entities.get(archetype_index);
+                sparse_set
+                    .get(entity)
+                    .unwrap_or_else(|| debug_unreachable())
+            }
+        };
+        let dyn_ctor = self.dyn_ctor.unwrap_or_else(|| debug_unreachable());
         dyn_ctor.cast(ptr)
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        self.storage = Some(StorageType::Table);
         for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
@@ -296,10 +331,16 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitComponentsFetch
 }
 
 pub struct WriteTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
-    table_components: Option<Ptr<'w>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
+    storage: Option<StorageType>,
+    // T::Storage = TableStorage
+    table_components: Option<Ptr<'w>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+    component_sparse_set: Option<&'w ComponentSparseSet>,
+    entities: Option<ThinSlicePtr<'w, Entity>>,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetch<'w, Trait> {
@@ -307,16 +348,20 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
     type State = DynQueryState<Trait>;
 
     unsafe fn init(
-        _world: &'w World,
+        world: &'w World,
         _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
         Self {
-            table_components: None,
-            entity_table_rows: None,
             size_bytes: 0,
             dyn_ctor: None,
+            storage: None,
+            table_components: None,
+            entity_table_rows: None,
+            sparse_sets: &world.storages().sparse_sets,
+            component_sparse_set: None,
+            entities: None,
         }
     }
 
@@ -329,33 +374,60 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitComponentsFetc
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
-        self.entity_table_rows = Some(archetype.entity_table_rows().into());
         let table = &tables[archetype.table_id()];
         for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                self.table_components = Some(column.get_data_ptr());
+                self.storage = Some(StorageType::Table);
                 self.size_bytes = meta.size_bytes;
                 self.dyn_ctor = Some(meta.dyn_ctor);
+                self.entity_table_rows = Some(archetype.entity_table_rows().into());
+                self.table_components = Some(column.get_data_ptr());
                 return;
             }
         }
-        // At least one of the components must be present in the table.
+        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+            if let Some(sparse_set) = self.sparse_sets.get(component) {
+                self.storage = Some(StorageType::SparseSet);
+                self.size_bytes = meta.size_bytes;
+                self.dyn_ctor = Some(meta.dyn_ctor);
+                self.entities = Some(archetype.entities().into());
+                self.component_sparse_set = Some(sparse_set);
+                return;
+            }
+        }
+        // At least one of the components must be present in the table/sparse set.
         debug_unreachable()
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        let ((entity_table_rows, table_components), dyn_ctor) = self
-            .entity_table_rows
-            .zip(self.table_components)
-            .zip(self.dyn_ctor)
-            .unwrap_or_else(|| debug_unreachable());
-        let table_row = *entity_table_rows.get(archetype_index);
-        let ptr = table_components.byte_add(table_row * self.size_bytes);
+        let ptr = match self.storage {
+            None => debug_unreachable(),
+            Some(StorageType::Table) => {
+                let (entity_table_rows, table_components) = self
+                    .entity_table_rows
+                    .zip(self.table_components)
+                    .unwrap_or_else(|| debug_unreachable());
+                let table_row = *entity_table_rows.get(archetype_index);
+                table_components.byte_add(table_row * self.size_bytes)
+            }
+            Some(StorageType::SparseSet) => {
+                let (entities, sparse_set) = self
+                    .entities
+                    .zip(self.component_sparse_set)
+                    .unwrap_or_else(|| debug_unreachable());
+                let entity = *entities.get(archetype_index);
+                sparse_set
+                    .get(entity)
+                    .unwrap_or_else(|| debug_unreachable())
+            }
+        };
+        let dyn_ctor = self.dyn_ctor.unwrap_or_else(|| debug_unreachable());
         // Is `assert_unique` correct here??
         dyn_ctor.cast_mut(ptr.assert_unique())
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        self.storage = Some(StorageType::Table);
         for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
@@ -411,51 +483,75 @@ pub struct All<T: ?Sized>(T);
 #[doc(hidden)]
 pub struct ReadAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
 }
 
 pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
     table: &'w Table,
     table_row: usize,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
 }
 
 impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
     type Item = &'w Trait;
-    type IntoIter = ReadTraitsIter<'w, Trait>;
+    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
-        ReadTraitsIter {
+        let table = ReadTableTraitsIter {
             components: self.registry.components.iter(),
             meta: self.registry.meta.iter(),
             table: self.table,
             table_row: self.table_row,
-        }
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
 impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
     type Item = &'w Trait;
-    type IntoIter = ReadTraitsIter<'w, Trait>;
+    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
-        ReadTraitsIter {
+        let table = ReadTableTraitsIter {
             components: self.registry.components.iter(),
             meta: self.registry.meta.iter(),
             table: self.table,
             table_row: self.table_row,
-        }
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
 #[doc(hidden)]
-pub struct ReadTraitsIter<'a, Trait: ?Sized> {
+pub type CombinedReadTraitsIter<'a, Trait> =
+    std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
+
+#[doc(hidden)]
+pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
     table_row: usize,
 }
 
-impl<'a, Trait: ?Sized> Iterator for ReadTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
         let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
@@ -470,41 +566,85 @@ impl<'a, Trait: ?Sized> Iterator for ReadTraitsIter<'a, Trait> {
 }
 
 #[doc(hidden)]
+pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
+    components: std::slice::Iter<'a, ComponentId>,
+    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    entity: Entity,
+    sparse_sets: &'a SparseSets,
+}
+
+impl<'a, Trait: ?Sized> Iterator for ReadSparseTraitsIter<'a, Trait> {
+    type Item = &'a Trait;
+    fn next(&mut self) -> Option<Self::Item> {
+        let (ptr, meta) = std::iter::zip(&mut self.components, &mut self.meta).find_map(
+            |(&component, meta)| {
+                self.sparse_sets
+                    .get(component)
+                    .and_then(|set| set.get(self.entity))
+                    .zip(Some(meta))
+            },
+        )?;
+        let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
+        Some(trait_object)
+    }
+}
+
+#[doc(hidden)]
 pub struct WriteAllTraitComponentsFetch<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
 }
 
 pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
     registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
     table: &'w Table,
     table_row: usize,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
 }
 
 impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
     type Item = &'w mut Trait;
-    type IntoIter = WriteTraitsIter<'w, Trait>;
+    type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
-        WriteTraitsIter {
+        let table = WriteTableTraitsIter {
             components: self.registry.components.iter(),
             meta: self.registry.meta.iter(),
             table: self.table,
             table_row: self.table_row,
-        }
+        };
+        let sparse = WriteSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
 impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTraits<'world, Trait> {
     type Item = &'local Trait;
-    type IntoIter = ReadTraitsIter<'local, Trait>;
+    type IntoIter = CombinedReadTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
-        ReadTraitsIter {
+        let table = ReadTableTraitsIter {
             components: self.registry.components.iter(),
             meta: self.registry.meta.iter(),
             table: self.table,
             table_row: self.table_row,
-        }
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
@@ -512,26 +652,37 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
     for &'local mut WriteTraits<'world, Trait>
 {
     type Item = &'local mut Trait;
-    type IntoIter = WriteTraitsIter<'local, Trait>;
+    type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
-        WriteTraitsIter {
+        let table = WriteTableTraitsIter {
             components: self.registry.components.iter(),
             meta: self.registry.meta.iter(),
             table: self.table,
             table_row: self.table_row,
-        }
+        };
+        let sparse = WriteSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
 #[doc(hidden)]
-pub struct WriteTraitsIter<'a, Trait: ?Sized + DynQuery> {
+pub type CombinedWriteTraitsIter<'a, Trait> =
+    std::iter::Chain<WriteTableTraitsIter<'a, Trait>, WriteSparseTraitsIter<'a, Trait>>;
+
+#[doc(hidden)]
+pub struct WriteTableTraitsIter<'a, Trait: ?Sized + DynQuery> {
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
     table_row: usize,
 }
 
-impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
     type Item = &'a mut Trait;
     fn next(&mut self) -> Option<Self::Item> {
         let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
@@ -541,6 +692,30 @@ impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTraitsIter<'a, Trait> {
             let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
             meta.dyn_ctor.cast_mut(ptr.assert_unique())
         };
+        Some(trait_object)
+    }
+}
+
+#[doc(hidden)]
+pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
+    components: std::slice::Iter<'a, ComponentId>,
+    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    entity: Entity,
+    sparse_sets: &'a SparseSets,
+}
+
+impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
+    type Item = &'a mut Trait;
+    fn next(&mut self) -> Option<Self::Item> {
+        let (ptr, meta) = std::iter::zip(&mut self.components, &mut self.meta).find_map(
+            |(&component, meta)| {
+                self.sparse_sets
+                    .get(component)
+                    .and_then(|set| set.get(self.entity))
+                    .zip(Some(meta))
+            },
+        )?;
+        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr.assert_unique()) };
         Some(trait_object)
     }
 }
@@ -561,6 +736,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
             // since no one outside of this crate can access the registry type.
             registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
             table: None,
+            sparse_sets: &world.storages().sparse_sets,
         }
     }
 
@@ -588,6 +764,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
             registry: self.registry,
             table,
             table_row,
+            sparse_sets: self.sparse_sets,
         }
     }
 
@@ -601,7 +778,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitComponentsFe
         ReadTraits {
             registry: self.registry,
             table,
-            table_row,
+            table_row: table_row,
+            sparse_sets: self.sparse_sets,
         }
     }
 
@@ -648,6 +826,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
             // since no one outside of this crate can access the registry type.
             registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
             table: None,
+            sparse_sets: &world.storages().sparse_sets,
         }
     }
 
@@ -675,6 +854,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
             registry: self.registry,
             table,
             table_row,
+            sparse_sets: self.sparse_sets,
         }
     }
 
@@ -688,7 +868,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitComponentsF
         WriteTraits {
             registry: self.registry,
             table,
-            table_row,
+            table_row: table_row,
+            sparse_sets: self.sparse_sets,
         }
     }
 

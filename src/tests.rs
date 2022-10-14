@@ -1,4 +1,5 @@
 use super::*;
+use std::fmt::Display;
 
 #[derive(Default)]
 pub struct Output(Vec<String>);
@@ -189,5 +190,91 @@ fn age_up_not(mut q: Query<All<&mut dyn Person>, Without<Fem>>) {
         for p in all {
             p.set_age(p.age() + 1);
         }
+    }
+}
+
+pub trait Messages: 'static {
+    fn send(&mut self, _: &dyn Display);
+    fn read(&self) -> &[String];
+}
+
+impl_dyn_query!(Messages);
+
+#[derive(Component)]
+pub struct RecA(Vec<String>);
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct RecB(Vec<String>);
+
+impl Messages for RecA {
+    fn send(&mut self, m: &dyn Display) {
+        self.0.push(format!("RecA: {m}"));
+    }
+    fn read(&self) -> &[String] {
+        &self.0
+    }
+}
+
+impl Messages for RecB {
+    fn send(&mut self, m: &dyn Display) {
+        self.0.push(format!("RecB: {m}"));
+    }
+    fn read(&self) -> &[String] {
+        &self.0
+    }
+}
+
+#[test]
+fn sparse1() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Messages, RecA>()
+        .register_component_as::<dyn Messages, RecB>();
+
+    world.spawn().insert(RecA(vec![]));
+    world
+        .spawn()
+        .insert_bundle((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
+
+    let mut stage = SystemStage::parallel();
+    stage
+        .add_system(print_messages)
+        .add_system(spawn_sparse.after(print_messages));
+
+    stage.run(&mut world);
+    stage.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "New frame:",
+            "0: []",
+            "1: []",
+            r#"1: ["Mama mia"]"#,
+            "New frame:",
+            "0: []",
+            "1: []",
+            r#"1: ["Mama mia"]"#,
+            r#"2: ["Sparse #0"]"#,
+            r#"3: ["Sparse #1"]"#,
+            r#"4: ["Sparse #2"]"#,
+        ]
+    );
+}
+
+fn print_messages(q: Query<All<&dyn Messages>>, mut output: ResMut<Output>) {
+    output.0.push("New frame:".to_owned());
+    for (i, all) in q.iter().enumerate() {
+        for msgs in all {
+            output.0.push(format!("{i}: {:?}", msgs.read()));
+        }
+    }
+}
+
+fn spawn_sparse(mut commands: Commands) {
+    for i in 0..3 {
+        commands.spawn().insert(RecB(vec![format!("Sparse #{i}")]));
     }
 }
