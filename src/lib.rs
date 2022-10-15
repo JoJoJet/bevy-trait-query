@@ -60,6 +60,12 @@ struct TraitImplRegistry<Trait: ?Sized> {
     // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
     meta: Vec<TraitImplMeta<Trait>>,
+
+    table_components: Vec<ComponentId>,
+    table_meta: Vec<TraitImplMeta<Trait>>,
+
+    sparse_components: Vec<ComponentId>,
+    sparse_meta: Vec<TraitImplMeta<Trait>>,
 }
 
 impl<T: ?Sized> Default for TraitImplRegistry<T> {
@@ -68,6 +74,10 @@ impl<T: ?Sized> Default for TraitImplRegistry<T> {
         Self {
             components: vec![],
             meta: vec![],
+            table_components: vec![],
+            table_meta: vec![],
+            sparse_components: vec![],
+            sparse_meta: vec![],
         }
     }
 }
@@ -76,6 +86,18 @@ impl<Trait: ?Sized + DynQuery> TraitImplRegistry<Trait> {
     fn register<C: Component>(&mut self, component: ComponentId, meta: TraitImplMeta<Trait>) {
         self.components.push(component);
         self.meta.push(meta);
+
+        use bevy::ecs::component::ComponentStorage;
+        match <C as Component>::Storage::STORAGE_TYPE {
+            StorageType::Table => {
+                self.table_components.push(component);
+                self.table_meta.push(meta);
+            }
+            StorageType::SparseSet => {
+                self.sparse_components.push(component);
+                self.sparse_meta.push(meta);
+            }
+        }
     }
 }
 
@@ -817,14 +839,14 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.table_components.iter(),
+            meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
         };
         let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.sparse_components.iter(),
+            meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
         };
@@ -837,14 +859,14 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.table_components.iter(),
+            meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
         };
         let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.sparse_components.iter(),
+            meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
         };
@@ -857,14 +879,14 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
     type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.table_components.iter(),
+            meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
         };
         let sparse = WriteSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.sparse_components.iter(),
+            meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
         };
@@ -877,14 +899,14 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTra
     type IntoIter = CombinedReadTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.table_components.iter(),
+            meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
         };
         let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.sparse_components.iter(),
+            meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
         };
@@ -899,14 +921,14 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
     type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.table_components.iter(),
+            meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
         };
         let sparse = WriteSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
+            components: self.registry.sparse_components.iter(),
+            meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
         };
