@@ -59,7 +59,7 @@ impl RegisterExt for App {
     }
 }
 
-struct TraitComponentRegistry<Trait: ?Sized + DynQuery> {
+struct TraitComponentRegistry<Trait: ?Sized> {
     // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
     meta: Vec<TraitImplMeta<Trait>>,
