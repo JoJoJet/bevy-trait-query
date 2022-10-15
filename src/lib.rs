@@ -35,7 +35,7 @@ impl RegisterExt for World {
     {
         let component_id = self.init_component::<C>();
         let registry = self
-            .get_resource_or_insert_with(|| TraitComponentRegistry::<Trait> {
+            .get_resource_or_insert_with(|| TraitImplRegistry::<Trait> {
                 components: vec![],
                 meta: vec![],
             })
@@ -59,7 +59,7 @@ impl RegisterExt for App {
     }
 }
 
-struct TraitComponentRegistry<Trait: ?Sized> {
+struct TraitImplRegistry<Trait: ?Sized> {
     // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
     meta: Vec<TraitImplMeta<Trait>>,
@@ -152,7 +152,7 @@ impl<Trait: ?Sized + DynQuery> FetchState for DynQueryState<Trait> {
         }
 
         let registry = world
-            .get_resource::<TraitComponentRegistry<Trait>>()
+            .get_resource::<TraitImplRegistry<Trait>>()
             .unwrap_or_else(|| error::<Trait>());
         Self {
             components: registry.components.clone().into_boxed_slice(),
@@ -582,7 +582,7 @@ impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
 
 #[doc(hidden)]
 pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
+    registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
@@ -592,7 +592,7 @@ pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
 
 #[doc(hidden)]
 pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
+    registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
@@ -601,7 +601,7 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
 }
 
 pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
+    registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     table: &'w Table,
     table_row: usize,
@@ -610,7 +610,7 @@ pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
 }
 
 pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
+    registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     table: &'w Table,
     table_row: usize,
