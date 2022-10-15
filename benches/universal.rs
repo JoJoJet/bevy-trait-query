@@ -119,6 +119,7 @@ impl<'w> Benchmark<'w> {
                 output.push(x.messages().len());
             }
         }
+        self.2 = output;
     }
 }
 
