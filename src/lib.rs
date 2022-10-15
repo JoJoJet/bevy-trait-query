@@ -480,55 +480,6 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 pub struct All<T: ?Sized>(T);
 
-pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
-    // T::Storage = TableStorage
-    table: &'w Table,
-    table_row: usize,
-    // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-}
-
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-        };
-        let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            entity: self.table.entities()[self.table_row],
-            sparse_sets: self.sparse_sets,
-        };
-        table.chain(sparse)
-    }
-}
-
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-        };
-        let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            entity: self.table.entities()[self.table_row],
-            sparse_sets: self.sparse_sets,
-        };
-        table.chain(sparse)
-    }
-}
-
 #[doc(hidden)]
 pub type CombinedReadTraitsIter<'a, Trait> =
     std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
@@ -576,77 +527,6 @@ impl<'a, Trait: ?Sized> Iterator for ReadSparseTraitsIter<'a, Trait> {
         )?;
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
         Some(trait_object)
-    }
-}
-
-pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
-    // T::Storage = TableStorage
-    table: &'w Table,
-    table_row: usize,
-    // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-}
-
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
-    type Item = &'w mut Trait;
-    type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        let table = WriteTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-        };
-        let sparse = WriteSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            entity: self.table.entities()[self.table_row],
-            sparse_sets: self.sparse_sets,
-        };
-        table.chain(sparse)
-    }
-}
-
-impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTraits<'world, Trait> {
-    type Item = &'local Trait;
-    type IntoIter = CombinedReadTraitsIter<'local, Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        let table = ReadTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-        };
-        let sparse = ReadSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            entity: self.table.entities()[self.table_row],
-            sparse_sets: self.sparse_sets,
-        };
-        table.chain(sparse)
-    }
-}
-
-impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
-    for &'local mut WriteTraits<'world, Trait>
-{
-    type Item = &'local mut Trait;
-    type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
-    fn into_iter(self) -> Self::IntoIter {
-        let table = WriteTableTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-        };
-        let sparse = WriteSparseTraitsIter {
-            components: self.registry.components.iter(),
-            meta: self.registry.meta.iter(),
-            entity: self.table.entities()[self.table_row],
-            sparse_sets: self.sparse_sets,
-        };
-        table.chain(sparse)
     }
 }
 
@@ -706,6 +586,34 @@ pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+}
+
+#[doc(hidden)]
+pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
+    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table: Option<&'w Table>,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+}
+
+pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
+    table: &'w Table,
+    table_row: usize,
+    // T::Storage = SparseStorage
+    sparse_sets: &'w SparseSets,
+}
+
+pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
+    registry: &'w TraitComponentRegistry<Trait>,
+    // T::Storage = TableStorage
+    table: &'w Table,
+    table_row: usize,
     // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
 }
@@ -800,16 +708,6 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, T
     }
 }
 
-#[doc(hidden)]
-pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitComponentRegistry<Trait>,
-    // T::Storage = TableStorage
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
-    table: Option<&'w Table>,
-    // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-}
-
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
     type Item = WriteTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
@@ -897,6 +795,108 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
                 access.add_write(archetype_component_id);
             }
         }
+    }
+}
+
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        let table = ReadTableTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
+    }
+}
+
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
+    type Item = &'w Trait;
+    type IntoIter = CombinedReadTraitsIter<'w, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        let table = ReadTableTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
+    }
+}
+
+impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
+    type Item = &'w mut Trait;
+    type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        let table = WriteTableTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        };
+        let sparse = WriteSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTraits<'world, Trait> {
+    type Item = &'local Trait;
+    type IntoIter = CombinedReadTraitsIter<'local, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        let table = ReadTableTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        };
+        let sparse = ReadSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
+    for &'local mut WriteTraits<'world, Trait>
+{
+    type Item = &'local mut Trait;
+    type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
+    fn into_iter(self) -> Self::IntoIter {
+        let table = WriteTableTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            table: self.table,
+            table_row: self.table_row,
+        };
+        let sparse = WriteSparseTraitsIter {
+            components: self.registry.components.iter(),
+            meta: self.registry.meta.iter(),
+            entity: self.table.entities()[self.table_row],
+            sparse_sets: self.sparse_sets,
+        };
+        table.chain(sparse)
     }
 }
 
