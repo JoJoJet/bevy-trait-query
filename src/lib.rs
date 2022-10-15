@@ -66,6 +66,8 @@ struct TraitImplRegistry<Trait: ?Sized> {
 
     sparse_components: Vec<ComponentId>,
     sparse_meta: Vec<TraitImplMeta<Trait>>,
+
+    sealed: bool,
 }
 
 impl<T: ?Sized> Default for TraitImplRegistry<T> {
@@ -78,12 +80,18 @@ impl<T: ?Sized> Default for TraitImplRegistry<T> {
             table_meta: vec![],
             sparse_components: vec![],
             sparse_meta: vec![],
+            sealed: false,
         }
     }
 }
 
 impl<Trait: ?Sized + DynQuery> TraitImplRegistry<Trait> {
     fn register<C: Component>(&mut self, component: ComponentId, meta: TraitImplMeta<Trait>) {
+        if self.sealed {
+            // It is not possible to update the `FetchState` for a given system after the game has started,
+            // so for explicitness, let's panic instead of having a trait impl silently get forgotten.
+            panic!("Cannot register new trait impls after the game has started");
+        }
         self.components.push(component);
         self.meta.push(meta);
 
@@ -98,6 +106,9 @@ impl<Trait: ?Sized + DynQuery> TraitImplRegistry<Trait> {
                 self.sparse_meta.push(meta);
             }
         }
+    }
+    fn seal(&mut self) {
+        self.sealed = true;
     }
 }
 
@@ -187,9 +198,10 @@ impl<Trait: ?Sized + DynQuery> FetchState for DynQueryState<Trait> {
             )
         }
 
-        let registry = world
-            .get_resource::<TraitImplRegistry<Trait>>()
+        let mut registry = world
+            .get_resource_mut::<TraitImplRegistry<Trait>>()
             .unwrap_or_else(|| error::<Trait>());
+        registry.seal();
         Self {
             components: registry.components.clone().into_boxed_slice(),
             meta: registry.meta.clone().into_boxed_slice(),
