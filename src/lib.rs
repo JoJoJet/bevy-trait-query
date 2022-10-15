@@ -35,16 +35,13 @@ impl RegisterExt for World {
     {
         let component_id = self.init_component::<C>();
         let registry = self
-            .get_resource_or_insert_with(|| TraitImplRegistry::<Trait> {
-                components: vec![],
-                meta: vec![],
-            })
+            .get_resource_or_insert_with::<TraitImplRegistry<Trait>>(default)
             .into_inner();
-        registry.components.push(component_id);
-        registry.meta.push(TraitImplMeta {
+        let meta = TraitImplMeta {
             size_bytes: std::mem::size_of::<C>(),
             dyn_ctor: DynCtor { cast: <(C,)>::cast },
-        });
+        };
+        registry.register::<C>(component_id, meta);
         self
     }
 }
@@ -63,6 +60,23 @@ struct TraitImplRegistry<Trait: ?Sized> {
     // Component IDs are stored contiguously so that we can search them quickly.
     components: Vec<ComponentId>,
     meta: Vec<TraitImplMeta<Trait>>,
+}
+
+impl<T: ?Sized> Default for TraitImplRegistry<T> {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            components: vec![],
+            meta: vec![],
+        }
+    }
+}
+
+impl<Trait: ?Sized + DynQuery> TraitImplRegistry<Trait> {
+    fn register<C: Component>(&mut self, component: ComponentId, meta: TraitImplMeta<Trait>) {
+        self.components.push(component);
+        self.meta.push(meta);
+    }
 }
 
 /// Stores data about an impl of a trait
