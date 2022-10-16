@@ -369,6 +369,8 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     sparse_sets: &'w SparseSets,
 }
 
+/// SAFETY: We only access the traits registered in `DynQueryState`.
+/// This same set of traits is used to match archetypes, and used to register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = DynQueryState<Trait>;
@@ -509,9 +511,12 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-    component_sparse_set: Option<&'w ComponentSparseSet>,
     entities: Option<ThinSlicePtr<'w, Entity>>,
+    component_sparse_set: Option<&'w ComponentSparseSet>,
+    // While we have shared mutable access to all sparse set components,
+    // in practice we will only modify the components listed in `self.registry`.
+    // These accesses have been registered, which prevents runtime conflicts.
+    sparse_sets: &'w SparseSets,
 
     last_change_tick: u32,
     change_tick: u32,
