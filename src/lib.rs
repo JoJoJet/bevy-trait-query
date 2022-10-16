@@ -796,20 +796,26 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    table: &'a Table,
     table_row: usize,
+    // Grants shared access to the components corresponding to `components` in this table.
+    // Not all components are guaranteed to exist in the table.
+    table: &'a Table,
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
+        // Iterate the remaining table components that are registered,
+        // until we find one that exists in the table.
         let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        let table_components = column.get_data_ptr();
-        let trait_object = unsafe {
-            let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
-            meta.dyn_ctor.cast(ptr)
+        // SAFETY: We have shared access to the entire column.
+        let ptr = unsafe {
+            column
+                .get_data_ptr()
+                .byte_add(self.table_row * meta.size_bytes)
         };
+        let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
         Some(trait_object)
     }
 }
@@ -820,12 +826,15 @@ pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     entity: Entity,
+    // Grants shared access to the components corresponding to both `components` and `entity`.
     sparse_sets: &'a SparseSets,
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
+        // Iterate the remaining sparse set components that are registered,
+        // until we find one that exists in the archetype.
         let (ptr, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
             |(&component, meta)| {
                 self.sparse_sets
