@@ -938,26 +938,25 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
 #[doc(hidden)]
 pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
-    // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
 }
 
 #[doc(hidden)]
 pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     registry: &'w TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
-    // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
 
     last_change_tick: u32,
     change_tick: u32,
 }
 
+/// SAFETY: We only access the components registered in the trait registry.
+/// This is known to match the set of components in the `DynQueryState`,
+/// which is used to match archetypes and register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
     type Item = ReadTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
@@ -1046,6 +1045,9 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w,
     }
 }
 
+/// SAFETY: We only access the components registered in the trait registry.
+/// This is known to match the set of components in the `DynQueryState`,
+/// which is used to match archetypes and register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
     type Item = WriteTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
