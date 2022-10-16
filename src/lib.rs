@@ -7,8 +7,6 @@
 //!
 //! If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 
-#![allow(clippy::all)]
-
 use std::cell::UnsafeCell;
 
 use bevy::{
@@ -795,7 +793,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, T
         ReadTraits {
             registry: self.registry,
             table,
-            table_row: table_row,
+            table_row,
             sparse_sets: self.sparse_sets,
         }
     }
@@ -889,7 +887,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
         WriteTraits {
             registry: self.registry,
             table,
-            table_row: table_row,
+            table_row,
             sparse_sets: self.sparse_sets,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
