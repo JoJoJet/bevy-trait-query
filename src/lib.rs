@@ -355,7 +355,7 @@ where
 
 pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
-    // in practice we will only read the components listed in `self.registry`.
+    // in practice we will only read the components specified in the `FetchState`.
     // These accesses have been registered, which prevents runtime conflicts.
     sparse_sets: &'w SparseSets,
     // After `Fetch::set_archetype` or `set_table` has been called,
@@ -526,7 +526,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
 
 pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     // While we have shared mutable access to all sparse set components,
-    // in practice we will only modify the components listed in `self.registry`.
+    // in practice we will only modify the components specified in the `FetchState`.
     // These accesses have been registered, which prevents runtime conflicts.
     sparse_sets: &'w SparseSets,
 
@@ -839,6 +839,8 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
+    /// SAFETY: Given the same trait type and same archetype,
+    /// no two instances of this struct may have the same `table_row`.
     table_row: usize,
     last_change_tick: u32,
     change_tick: u32,
@@ -847,13 +849,24 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
+        // Iterate the remaining table components that are registered,
+        // until we find one that exists in the table.
         let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        let table_components = column.get_data_ptr();
-        let trait_object = unsafe {
-            let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
-            meta.dyn_ctor.cast_mut(ptr.assert_unique())
+        let ptr = unsafe {
+            column
+                .get_data_ptr()
+                .byte_add(self.table_row * meta.size_bytes)
         };
+        // SAFETY: The instance of `WriteTraits` that created this iterator
+        // has exclusive access to all table components registered with the trait.
+        //
+        // Since `self.table_row` is guaranteed to be unique, we know that other instances
+        // of `WriteTableTraitsIter` will not conflict with this pointer.
+        let ptr = unsafe { ptr.assert_unique() };
+        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+        // SAFETY: We have exclusive access to the component, so by extension
+        // we have exclusive access to the corresponding `ComponentTicks`.
         let component_ticks = unsafe { column.get_ticks_unchecked(self.table_row).deref_mut() };
         Some(Mut {
             value: trait_object,
@@ -871,6 +884,8 @@ pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    /// SAFETY: Given the same trait type and same archetype,
+    /// no two instances of this struct may have the same `entity`.
     entity: Entity,
     sparse_sets: &'a SparseSets,
     last_change_tick: u32,
@@ -880,6 +895,8 @@ pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
+        // Iterate the remaining sparse set components we have registered,
+        // until we find one that exists in the archetype.
         let ((ptr, component_ticks), meta) =
             unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
                 |(&component, meta)| {
@@ -889,12 +906,22 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
                         .zip(Some(meta))
                 },
             )?;
-        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr.assert_unique()) };
+
+        // SAFETY: The instance of `WriteTraits` that created this iterator
+        // has exclusive access to all sparse set components registered with the trait.
+        //
+        // Since `self.entity` is guaranteed to be unique, we know that other instances
+        // of `WriteSparseTraitsIter` will not conflict with this pointer.
+        let ptr = unsafe { ptr.assert_unique() };
+        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+        // SAFETY: We have exclusive access to the component, so by extension
+        // we have exclusive access to the corresponding `ComponentTicks`.
+        let component_ticks = unsafe { component_ticks.deref_mut() };
 
         Some(Mut {
             value: trait_object,
             ticks: Ticks {
-                component_ticks: unsafe { component_ticks.deref_mut() },
+                component_ticks,
                 last_change_tick: self.last_change_tick,
                 change_tick: self.change_tick,
             },
