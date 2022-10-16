@@ -648,22 +648,24 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
     sparse_sets: &'w SparseSets,
 }
 
-pub struct ReadTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitImplRegistry<Trait>,
+/// Read-access to all components implementing a trait for a given entity.
+pub struct ReadTraits<'a, Trait: ?Sized + DynQuery> {
+    registry: &'a TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
-    table: &'w Table,
+    table: &'a Table,
     table_row: usize,
     // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
+    sparse_sets: &'a SparseSets,
 }
 
-pub struct WriteTraits<'w, Trait: ?Sized + DynQuery> {
-    registry: &'w TraitImplRegistry<Trait>,
+/// Write-access to all components implementing a trait for a given entity.
+pub struct WriteTraits<'a, Trait: ?Sized + DynQuery> {
+    registry: &'a TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
-    table: &'w Table,
+    table: &'a Table,
     table_row: usize,
     // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
+    sparse_sets: &'a SparseSets,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
