@@ -92,7 +92,7 @@ The performance of trait queries is quite competitive. Here are some benchmarks 
 |-------------------|----------------|-------------------|-----------------|
 | 1 match           | 16.931 µs      | 29.692 µs         | 63.095 µs       |
 | 2 matches         | 17.508 µs      | 30.859 µs         | 101.88 µs       |
-| 1-2 matches       | -              | 28.840 µs         | 101.88 µs       |
+| 1-2 matches       | -              | 28.840 µs         | 83.035 µs       |
 
 <!-- cargo-rdme end -->
 
