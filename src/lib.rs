@@ -1,3 +1,12 @@
+//! An implementation of trait queries for the bevy game engine.
+//!
+//! # Note on reliability
+//!
+//! This crate is highly experimental (read: not battle tested). It seems to work in my testing,
+//! but it very well could invoke undefined behavior when run. Use with caution (and miri!).
+//!
+//! If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
+
 #![allow(clippy::all)]
 
 use std::cell::UnsafeCell;
