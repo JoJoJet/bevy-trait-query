@@ -366,19 +366,26 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
 enum ReadStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
+        // This points to one of the component table columns,
+        // corresponding to one of the `ComponentId`s in the fetch state.
+        // The fetch impl registers read access for all of these components,
+        // so there will be no runtime conflicts.
         column: Ptr<'w>,
         entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
-        entities: ThinSlicePtr<'w, Entity>,
+        // This gives us access to one of the components implementing the trait.
+        // The fetch impl registers read access for all components implementing the trait,
+        // so there will not be any runtime conflicts.
         components: &'w ComponentSparseSet,
+        entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
     },
 }
 
-/// SAFETY: We only access the traits registered in `DynQueryState`.
-/// This same set of traits is used to match archetypes, and used to register world access.
+/// SAFETY: We only access the components registered in `DynQueryState`.
+/// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = DynQueryState<Trait>;
@@ -527,18 +534,26 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
 enum WriteStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
+        // This is a shared mutable pointer to one of the component table columns,
+        // corresponding to one of the `ComponentId`s in the fetch state.
+        // The fetch impl registers write access for all of these components,
+        // so there will be no runtime conflicts.
         column: Ptr<'w>,
         table_ticks: ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
         entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
-        entities: ThinSlicePtr<'w, Entity>,
+        // This gives us shared mutable access to one of the components implementing the trait.
+        // The fetch impl registers write access for all components implementing the trait, so there will be no runtime conflicts.
         components: &'w ComponentSparseSet,
+        entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
     },
 }
 
+/// SAFETY: We only access the components registered in `DynQueryState`.
+/// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
     type Item = Mut<'w, Trait>;
     type State = DynQueryState<Trait>;
