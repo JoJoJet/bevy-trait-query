@@ -748,6 +748,9 @@ pub struct All<T: ?Sized>(T);
 
 /// Read-access to all components implementing a trait for a given entity.
 pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
+    // Read-only access to the global trait registry.
+    // Since no one outside of the crate can name the registry type,
+    // we can be confident that no write accessess will conflict with this.
     registry: &'a TraitImplRegistry<Trait>,
 
     table: &'a Table,
@@ -762,6 +765,9 @@ pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
 
 /// Write-access to all components implementing a trait for a given entity.
 pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
+    // Read-only access to the global trait registry.
+    // Since no one outside of the crate can name the registry type,
+    // we can be confident that no write accessess will conflict with this.
     registry: &'a TraitImplRegistry<Trait>,
 
     table: &'a Table,
@@ -964,9 +970,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w,
     ) -> Self {
         Self {
             entity_table_rows: None,
-            // Nothing will conflict with this resource reference,
-            // since no one outside of this crate can access the registry type.
-            registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
+            registry: world.resource(),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
         }
@@ -1054,9 +1058,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteAllTraitsFetch<'w
     ) -> Self {
         Self {
             entity_table_rows: None,
-            // Nothing will conflict with this resource reference,
-            // since no one outside of this crate can access the registry type.
-            registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
+            registry: world.resource(),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_change_tick,
