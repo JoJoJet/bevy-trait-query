@@ -366,18 +366,18 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
 enum ReadStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
-        // This points to one of the component table columns,
-        // corresponding to one of the `ComponentId`s in the fetch state.
-        // The fetch impl registers read access for all of these components,
-        // so there will be no runtime conflicts.
+        /// This points to one of the component table columns,
+        /// corresponding to one of the `ComponentId`s in the fetch state.
+        /// The fetch impl registers read access for all of these components,
+        /// so there will be no runtime conflicts.
         column: Ptr<'w>,
         entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
-        // This gives us access to one of the components implementing the trait.
-        // The fetch impl registers read access for all components implementing the trait,
-        // so there will not be any runtime conflicts.
+        /// This gives us access to one of the components implementing the trait.
+        /// The fetch impl registers read access for all components implementing the trait,
+        /// so there will not be any runtime conflicts.
         components: &'w ComponentSparseSet,
         entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
@@ -541,18 +541,18 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
 enum WriteStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
-        // This is a shared mutable pointer to one of the component table columns,
-        // corresponding to one of the `ComponentId`s in the fetch state.
-        // The fetch impl registers write access for all of these components,
-        // so there will be no runtime conflicts.
+        /// This is a shared mutable pointer to one of the component table columns,
+        /// corresponding to one of the `ComponentId`s in the fetch state.
+        /// The fetch impl registers write access for all of these components,
+        /// so there will be no runtime conflicts.
         column: Ptr<'w>,
         table_ticks: ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
         entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
-        // This gives us shared mutable access to one of the components implementing the trait.
-        // The fetch impl registers write access for all components implementing the trait, so there will be no runtime conflicts.
+        /// This gives us shared mutable access to one of the components implementing the trait.
+        /// The fetch impl registers write access for all components implementing the trait, so there will be no runtime conflicts.
         components: &'w ComponentSparseSet,
         entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
@@ -629,8 +629,12 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
             } => {
                 dyn_ctor = meta.dyn_ctor;
                 let table_row = *entity_rows.get(archetype_index);
+                let ptr = column.byte_add(table_row * meta.size_bytes);
                 (
-                    column.byte_add(table_row * meta.size_bytes),
+                    // SAFETY: `column` allows for shared mutable access.
+                    // So long as the caller does not call this function twice with the same archetype_index,
+                    // this pointer will never be aliased.
+                    ptr.assert_unique(),
                     table_ticks.get(table_row),
                 )
             }
@@ -641,15 +645,19 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
             } => {
                 dyn_ctor = meta.dyn_ctor;
                 let entity = *entities.get(archetype_index);
-                components
+                let (ptr, ticks) = components
                     .get_with_ticks(entity)
-                    .unwrap_or_else(|| debug_unreachable())
+                    .unwrap_or_else(|| debug_unreachable());
+                // SAFETY: `components` allows for shared mutable access.
+                // So long as the caller does not call this function twice with the same archetype_index,
+                // this pointer will never be aliased.
+                let ptr = ptr.assert_unique();
+                (ptr, ticks)
             }
         };
 
         Mut {
-            // Is `assert_unique` correct here??
-            value: dyn_ctor.cast_mut(ptr.assert_unique()),
+            value: dyn_ctor.cast_mut(ptr),
             ticks: Ticks {
                 component_ticks: component_ticks.deref_mut(),
                 last_change_tick: self.last_change_tick,
