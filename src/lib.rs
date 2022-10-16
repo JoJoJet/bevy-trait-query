@@ -411,6 +411,8 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
+        // Search for a registered trait impl that is present in the archetype.
+        // We check the table components first since it is faster to retrieve data of this type.
         let table = &tables[archetype.table_id()];
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
@@ -438,6 +440,8 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
         match self.storage {
+            // SAFETY: This function must have been called after `set_archetype`,
+            // so we know that `self.storage` has been initialized.
             ReadStorage::Uninit => debug_unreachable(),
             ReadStorage::Table {
                 column,
@@ -463,6 +467,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.storage = ReadStorage::Table {
@@ -478,6 +483,9 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         match self.storage {
+            // SAFETY: This function must have been called after `set_table`,
+            // so we know that `self.storage` has been initialized to the variant `ReadStorage::Table`.
+            ReadStorage::Uninit | ReadStorage::SparseSet { .. } => debug_unreachable(),
             ReadStorage::Table {
                 column,
                 entity_rows: _,
@@ -486,7 +494,6 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
                 let ptr = column.byte_add(table_row * meta.size_bytes);
                 meta.dyn_ctor.cast(ptr)
             }
-            _ => debug_unreachable(),
         }
     }
 
@@ -581,6 +588,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
         archetype: &'w bevy::ecs::archetype::Archetype,
         tables: &'w bevy::ecs::storage::Tables,
     ) {
+        // Search for a registered trait impl that is present in the archetype.
         let table = &tables[archetype.table_id()];
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
@@ -610,6 +618,8 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
         let dyn_ctor;
         let (ptr, component_ticks) = match self.storage {
+            // SAFETY: This function must have been called after `set_archetype`,
+            // so we know that `self.storage` has been initialized.
             WriteStorage::Uninit => debug_unreachable(),
             WriteStorage::Table {
                 column,
@@ -649,6 +659,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
+        // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.storage = WriteStorage::Table {
@@ -666,6 +677,9 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         let (ptr, component_ticks, dyn_ctor) = match self.storage {
+            // SAFETY: This function must have been called after `set_table`,
+            // so we know that `self.storage` has been initialized to the variant `WriteStorage::Table`.
+            WriteStorage::Uninit | WriteStorage::SparseSet { .. } => debug_unreachable(),
             WriteStorage::Table {
                 column,
                 table_ticks,
@@ -676,7 +690,6 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
                 table_ticks.get(table_row).deref_mut(),
                 meta.dyn_ctor,
             ),
-            _ => debug_unreachable(),
         };
         Mut {
             // Is `assert_unique` correct here??
