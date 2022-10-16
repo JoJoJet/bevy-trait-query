@@ -1,14 +1,17 @@
 #![allow(clippy::all)]
 
+use std::cell::UnsafeCell;
+
 use bevy::{
     ecs::{
-        component::{ComponentId, StorageType},
+        component::{ComponentId, ComponentTicks, StorageType},
         query::{Fetch, FetchState, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
         storage::{ComponentSparseSet, SparseSets, Table},
     },
     prelude::*,
-    ptr::{Ptr, PtrMut, ThinSlicePtr},
+    ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref},
 };
+use change_detection::{Mut, Ticks};
 
 #[cfg(test)]
 mod tests;
@@ -386,32 +389,39 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized + DynQuery> {
     storage: Option<StorageType>,
     // T::Storage = TableStorage
     table_components: Option<Ptr<'w>>,
+    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
     component_sparse_set: Option<&'w ComponentSparseSet>,
     entities: Option<ThinSlicePtr<'w, Entity>>,
+
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
-    type Item = &'w mut Trait;
+    type Item = Mut<'w, Trait>;
     type State = DynQueryState<Trait>;
 
     unsafe fn init(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> Self {
         Self {
             size_bytes: 0,
             dyn_ctor: None,
             storage: None,
             table_components: None,
+            table_ticks: None,
             entity_table_rows: None,
             sparse_sets: &world.storages().sparse_sets,
             component_sparse_set: None,
             entities: None,
+            last_change_tick,
+            change_tick,
         }
     }
 
@@ -432,6 +442,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
                 self.dyn_ctor = Some(meta.dyn_ctor);
                 self.entity_table_rows = Some(archetype.entity_table_rows().into());
                 self.table_components = Some(column.get_data_ptr());
+                self.table_ticks = Some(column.get_ticks_slice().into());
                 return;
             }
         }
@@ -450,15 +461,19 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        let ptr = match self.storage {
+        let (ptr, component_ticks) = match self.storage {
             None => debug_unreachable(),
             Some(StorageType::Table) => {
-                let (entity_table_rows, table_components) = self
+                let ((entity_table_rows, table_components), table_ticks) = self
                     .entity_table_rows
                     .zip(self.table_components)
+                    .zip(self.table_ticks)
                     .unwrap_or_else(|| debug_unreachable());
                 let table_row = *entity_table_rows.get(archetype_index);
-                table_components.byte_add(table_row * self.size_bytes)
+                (
+                    table_components.byte_add(table_row * self.size_bytes),
+                    table_ticks.get(table_row),
+                )
             }
             Some(StorageType::SparseSet) => {
                 let (entities, sparse_set) = self
@@ -467,13 +482,21 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
                     .unwrap_or_else(|| debug_unreachable());
                 let entity = *entities.get(archetype_index);
                 sparse_set
-                    .get(entity)
+                    .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable())
             }
         };
         let dyn_ctor = self.dyn_ctor.unwrap_or_else(|| debug_unreachable());
-        // Is `assert_unique` correct here??
-        dyn_ctor.cast_mut(ptr.assert_unique())
+
+        Mut {
+            // Is `assert_unique` correct here??
+            value: dyn_ctor.cast_mut(ptr.assert_unique()),
+            ticks: Ticks {
+                component_ticks: component_ticks.deref_mut(),
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
+        }
     }
 
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w bevy::ecs::storage::Table) {
@@ -481,6 +504,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
         for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.table_components = Some(column.get_data_ptr());
+                self.table_ticks = Some(column.get_ticks_slice().into());
                 self.size_bytes = meta.size_bytes;
                 self.dyn_ctor = Some(meta.dyn_ctor);
                 return;
@@ -491,13 +515,22 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trai
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let (table_components, dyn_ctor) = self
+        let ((table_components, dyn_ctor), table_ticks) = self
             .table_components
             .zip(self.dyn_ctor)
+            .zip(self.table_ticks)
             .unwrap_or_else(|| debug_unreachable());
         let ptr = table_components.byte_add(table_row * self.size_bytes);
-        // Is `assert_unique` correct here??
-        dyn_ctor.cast_mut(ptr.assert_unique())
+        let component_ticks = table_ticks.get(table_row).deref_mut();
+        Mut {
+            // Is `assert_unique` correct here??
+            value: dyn_ctor.cast_mut(ptr.assert_unique()),
+            ticks: Ticks {
+                component_ticks,
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
+        }
     }
 
     fn update_component_access(

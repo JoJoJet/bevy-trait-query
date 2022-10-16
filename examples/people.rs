@@ -72,7 +72,7 @@ fn print_info(people: Query<&dyn Person>) {
 }
 
 fn age_up(mut people: Query<&mut dyn Person>) {
-    for person in &mut people {
+    for mut person in &mut people {
         let new_age = person.age() + 1;
         person.set_age(new_age);
     }
