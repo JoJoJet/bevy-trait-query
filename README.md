@@ -6,6 +6,8 @@ An implementation of trait queries for the bevy game engine.
 
 Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
 
+This crate is implementation of the following RFC: https://github.com/bevyengine/rfcs/pull/39.
+
 ## Note on reliability
 
 This crate is highly experimental (read: not battle tested). It seems to work in my testing,
