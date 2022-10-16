@@ -4,6 +4,8 @@
 
 An implementation of trait queries for the bevy game engine.
 
+Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
+
 ## Note on reliability
 
 This crate is highly experimental (read: not battle tested). It seems to work in my testing,
@@ -12,8 +14,6 @@ but it very well could invoke undefined behavior when run. Use with caution (and
 If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 
 ## Overview
-
-Before using this crate, you should be familiar with bevy: https://github.com/JoJoJet/bevy-trait-query/issues.
 
 `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
 
