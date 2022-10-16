@@ -319,6 +319,40 @@ impl<Trait: ?Sized> DynCtor<Trait> {
     }
 }
 
+pub struct ZipExact<A, B> {
+    a: A,
+    b: B,
+}
+
+impl<A: Iterator, B: Iterator> Iterator for ZipExact<A, B> {
+    type Item = (A::Item, B::Item);
+    fn next(&mut self) -> Option<Self::Item> {
+        let a = self.a.next()?;
+        let b = self
+            .b
+            .next()
+            // SAFETY: `a` returned a valid value, and the caller of `zip_exact`
+            // guaranteed that `b` will return a value as long as `a` does.
+            .unwrap_or_else(|| unsafe { debug_unreachable() });
+        Some((a, b))
+    }
+}
+
+/// SAFETY: `b` must yield at least as many items as `a`.
+unsafe fn zip_exact<A: IntoIterator, B: IntoIterator>(
+    a: A,
+    b: B,
+) -> ZipExact<A::IntoIter, B::IntoIter>
+where
+    A::IntoIter: ExactSizeIterator,
+    B::IntoIter: ExactSizeIterator,
+{
+    let a = a.into_iter();
+    let b = b.into_iter();
+    debug_assert_eq!(a.len(), b.len());
+    ZipExact { a, b }
+}
+
 pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
@@ -367,7 +401,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
         tables: &'w bevy::ecs::storage::Tables,
     ) {
         let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+        for (&component, meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.storage = Some(StorageType::Table);
                 self.size_bytes = meta.size_bytes;
@@ -377,7 +411,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
                 return;
             }
         }
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+        for (&component, meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = self.sparse_sets.get(component) {
                 self.storage = Some(StorageType::SparseSet);
                 self.size_bytes = meta.size_bytes;
@@ -518,7 +552,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
         tables: &'w bevy::ecs::storage::Tables,
     ) {
         let table = &tables[archetype.table_id()];
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+        for (&component, meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 self.storage = Some(StorageType::Table);
                 self.size_bytes = meta.size_bytes;
@@ -529,7 +563,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
                 return;
             }
         }
-        for (&component, meta) in std::iter::zip(&*state.components, &*state.meta) {
+        for (&component, meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = self.sparse_sets.get(component) {
                 self.storage = Some(StorageType::SparseSet);
                 self.size_bytes = meta.size_bytes;
@@ -688,7 +722,7 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
+        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
         let table_components = column.get_data_ptr();
         let trait_object = unsafe {
@@ -710,7 +744,7 @@ pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        let (ptr, meta) = std::iter::zip(&mut self.components, &mut self.meta).find_map(
+        let (ptr, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
             |(&component, meta)| {
                 self.sparse_sets
                     .get(component)
@@ -736,7 +770,7 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
+        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
         let table_components = column.get_data_ptr();
         let trait_object = unsafe {
@@ -768,13 +802,15 @@ pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        let ((ptr, component_ticks), meta) = std::iter::zip(&mut self.components, &mut self.meta)
-            .find_map(|(&component, meta)| {
-            self.sparse_sets
-                .get(component)
-                .and_then(|set| set.get_with_ticks(self.entity))
-                .zip(Some(meta))
-        })?;
+        let ((ptr, component_ticks), meta) =
+            unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
+                |(&component, meta)| {
+                    self.sparse_sets
+                        .get(component)
+                        .and_then(|set| set.get_with_ticks(self.entity))
+                        .zip(Some(meta))
+                },
+            )?;
         let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr.assert_unique()) };
 
         Some(Mut {
