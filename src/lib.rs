@@ -632,10 +632,12 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
                 let ptr = column.byte_add(table_row * meta.size_bytes);
                 (
                     // SAFETY: `column` allows for shared mutable access.
-                    // So long as the caller does not call this function twice with the same archetype_index,
+                    // So long as the caller does not invoke this function twice with the same archetype_index,
                     // this pointer will never be aliased.
                     ptr.assert_unique(),
-                    table_ticks.get(table_row),
+                    // SAFETY: We have exclusive access to the component, so by extension
+                    // we have exclusive access to the corresponding `ComponentTicks`.
+                    table_ticks.get(table_row).deref_mut(),
                 )
             }
             WriteStorage::SparseSet {
@@ -648,18 +650,22 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
                 let (ptr, ticks) = components
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
-                // SAFETY: `components` allows for shared mutable access.
-                // So long as the caller does not call this function twice with the same archetype_index,
-                // this pointer will never be aliased.
-                let ptr = ptr.assert_unique();
-                (ptr, ticks)
+                (
+                    // SAFETY: We have exclusive access to the sparse set `components`.
+                    // So long as the caller does not invoke this function twice with the same archetype_index,
+                    // this pointer will never be aliased.
+                    ptr.assert_unique(),
+                    // SAFETY: We have exclusive access to the component, so by extension
+                    // we have exclusive access to the corresponding `ComponentTicks`.
+                    ticks.deref_mut(),
+                )
             }
         };
 
         Mut {
             value: dyn_ctor.cast_mut(ptr),
             ticks: Ticks {
-                component_ticks: component_ticks.deref_mut(),
+                component_ticks,
                 last_change_tick: self.last_change_tick,
                 change_tick: self.change_tick,
             },
