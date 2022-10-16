@@ -327,9 +327,12 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     table_components: Option<Ptr<'w>>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
-    sparse_sets: &'w SparseSets,
-    component_sparse_set: Option<&'w ComponentSparseSet>,
     entities: Option<ThinSlicePtr<'w, Entity>>,
+    component_sparse_set: Option<&'w ComponentSparseSet>,
+    // While we have shared access to all sparse set components,
+    // in practice we will only read the components listed in `self.registry`.
+    // These accesses have been registered, which prevents runtime conflicts.
+    sparse_sets: &'w SparseSets,
 }
 
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
@@ -643,9 +646,36 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 pub struct All<T: ?Sized>(T);
 
+/// Read-access to all components implementing a trait for a given entity.
+pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
+    registry: &'a TraitImplRegistry<Trait>,
+    // T::Storage = TableStorage
+    table: &'a Table,
+    table_row: usize,
+    // T::Storage = SparseStorage
+    sparse_sets: &'a SparseSets,
+}
+
+/// Write-access to all components implementing a trait for a given entity.
+pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
+    registry: &'a TraitImplRegistry<Trait>,
+    // T::Storage = TableStorage
+    table: &'a Table,
+    table_row: usize,
+    // T::Storage = SparseStorage
+    sparse_sets: &'a SparseSets,
+
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
 #[doc(hidden)]
 pub type CombinedReadTraitsIter<'a, Trait> =
     std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
+
+#[doc(hidden)]
+pub type CombinedWriteTraitsIter<'a, Trait> =
+    std::iter::Chain<WriteTableTraitsIter<'a, Trait>, WriteSparseTraitsIter<'a, Trait>>;
 
 #[doc(hidden)]
 pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
@@ -692,10 +722,6 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
         Some(trait_object)
     }
 }
-
-#[doc(hidden)]
-pub type CombinedWriteTraitsIter<'a, Trait> =
-    std::iter::Chain<WriteTableTraitsIter<'a, Trait>, WriteSparseTraitsIter<'a, Trait>>;
 
 #[doc(hidden)]
 pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
@@ -780,29 +806,6 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     table: Option<&'w Table>,
     // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
-
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-/// Read-access to all components implementing a trait for a given entity.
-pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
-    registry: &'a TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
-    table: &'a Table,
-    table_row: usize,
-    // T::Storage = SparseStorage
-    sparse_sets: &'a SparseSets,
-}
-
-/// Write-access to all components implementing a trait for a given entity.
-pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
-    registry: &'a TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
-    table: &'a Table,
-    table_row: usize,
-    // T::Storage = SparseStorage
-    sparse_sets: &'a SparseSets,
 
     last_change_tick: u32,
     change_tick: u32,
