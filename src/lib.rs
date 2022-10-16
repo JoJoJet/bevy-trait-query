@@ -79,6 +79,17 @@
 //! If you expect to have multiple components implementing the trait for a given entity,
 //! you should instead use "universal" queries: `All<&dyn Trait>`, `All<&mut dyn Trait>`.
 //! These queries will return every component implementing `Trait` for each entity.
+//!
+//! # Performance
+//!
+//! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
+//!
+//! |                   | Concrete type | Trait-existential | Trait-universal |
+//! |-------------------|----------------|-------------------|-----------------|
+//! | 1 match           | 16.931 µs      | 29.692 µs         | 63.095 µs       |
+//! | 2 matches         | 17.508 µs      | 30.859 µs         | 101.88 µs       |
+//! | 1-2 matches       | -              | 28.840 µs         | 101.88 µs       |
+//!
 
 use std::cell::UnsafeCell;
 
