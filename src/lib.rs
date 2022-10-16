@@ -13,6 +13,8 @@ use bevy::{
 #[cfg(test)]
 mod tests;
 
+pub mod change_detection;
+
 pub trait DynQuery: 'static {}
 
 pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
