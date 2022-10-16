@@ -10,7 +10,7 @@ pub trait Person: 'static {
     fn set_age(&mut self, age: u32);
 }
 
-impl_dyn_query!(Person);
+impl_trait_query!(Person);
 
 #[derive(Component)]
 struct Fem;
@@ -200,7 +200,7 @@ pub trait Messages: 'static {
     fn read(&self) -> &[String];
 }
 
-impl_dyn_query!(Messages);
+impl_trait_query!(Messages);
 
 #[derive(Component)]
 pub struct RecA(Vec<String>);

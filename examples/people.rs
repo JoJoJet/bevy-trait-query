@@ -9,7 +9,7 @@ pub trait Person: 'static {
 }
 
 // Add `WorldQuery` impls for `dyn Person`
-impl_dyn_query!(Person);
+impl_trait_query!(Person);
 
 #[derive(Component)]
 pub struct Beans(String, u32);

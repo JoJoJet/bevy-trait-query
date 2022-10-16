@@ -25,9 +25,9 @@ mod tests;
 
 pub mod change_detection;
 
-pub trait DynQuery: 'static {}
+pub trait TraitQuery: 'static {}
 
-pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
+pub trait TraitQueryMarker<Trait: ?Sized + TraitQuery> {
     type Covered: Component;
     /// Casts an untyped pointer to a trait object pointer,
     /// with a vtable corresponding to `Self::Covered`.
@@ -35,15 +35,15 @@ pub trait DynQueryMarker<Trait: ?Sized + DynQuery> {
 }
 
 pub trait RegisterExt {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
-        (C,): DynQueryMarker<Trait, Covered = C>;
+        (C,): TraitQueryMarker<Trait, Covered = C>;
 }
 
 impl RegisterExt for World {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
-        (C,): DynQueryMarker<Trait, Covered = C>,
+        (C,): TraitQueryMarker<Trait, Covered = C>,
     {
         let component_id = self.init_component::<C>();
         let registry = self
@@ -59,9 +59,9 @@ impl RegisterExt for World {
 }
 
 impl RegisterExt for App {
-    fn register_component_as<Trait: ?Sized + DynQuery, C: Component>(&mut self) -> &mut Self
+    fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
-        (C,): DynQueryMarker<Trait, Covered = C>,
+        (C,): TraitQueryMarker<Trait, Covered = C>,
     {
         self.world.register_component_as::<Trait, C>();
         self
@@ -97,7 +97,7 @@ impl<T: ?Sized> Default for TraitImplRegistry<T> {
     }
 }
 
-impl<Trait: ?Sized + DynQuery> TraitImplRegistry<Trait> {
+impl<Trait: ?Sized> TraitImplRegistry<Trait> {
     fn register<C: Component>(&mut self, component: ComponentId, meta: TraitImplMeta<Trait>) {
         if self.sealed {
             // It is not possible to update the `FetchState` for a given system after the game has started,
@@ -147,11 +147,11 @@ pub mod imports {
 }
 
 #[macro_export]
-macro_rules! impl_dyn_query {
+macro_rules! impl_trait_query {
     ($trait:ident) => {
-        impl $crate::DynQuery for dyn $trait {}
+        impl $crate::TraitQuery for dyn $trait {}
 
-        impl<T: $trait + $crate::imports::Component> $crate::DynQueryMarker<dyn $trait> for (T,) {
+        impl<T: $trait + $crate::imports::Component> $crate::TraitQueryMarker<dyn $trait> for (T,) {
             type Covered = T;
             fn cast(ptr: *mut u8) -> *mut dyn $trait {
                 ptr as *mut T as *mut _
@@ -200,7 +200,7 @@ pub struct DynQueryState<Trait: ?Sized> {
     meta: Box<[TraitImplMeta<Trait>]>,
 }
 
-impl<Trait: ?Sized + DynQuery> FetchState for DynQueryState<Trait> {
+impl<Trait: ?Sized + TraitQuery> FetchState for DynQueryState<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
         fn error<T: ?Sized + 'static>() -> ! {
@@ -246,7 +246,7 @@ impl<Trait: ?Sized> DynCtor<Trait> {
     }
 }
 
-pub struct ReadTraitFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
     storage: Option<StorageType>,
@@ -259,7 +259,7 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized + DynQuery> {
     entities: Option<ThinSlicePtr<'w, Entity>>,
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
     type Item = &'w Trait;
     type State = DynQueryState<Trait>;
 
@@ -390,7 +390,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadTraitFetch<'w, Trait
     }
 }
 
-pub struct WriteTraitFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     size_bytes: usize,
     dyn_ctor: Option<DynCtor<Trait>>,
     storage: Option<StorageType>,
@@ -407,7 +407,7 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized + DynQuery> {
     change_tick: u32,
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
     type Item = Mut<'w, Trait>;
     type State = DynQueryState<Trait>;
 
@@ -582,7 +582,7 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     table_row: usize,
 }
 
-impl<'a, Trait: ?Sized> Iterator for ReadTableTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
         let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
@@ -604,7 +604,7 @@ pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
     sparse_sets: &'a SparseSets,
 }
 
-impl<'a, Trait: ?Sized> Iterator for ReadSparseTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
         let (ptr, meta) = std::iter::zip(&mut self.components, &mut self.meta).find_map(
@@ -625,7 +625,7 @@ pub type CombinedWriteTraitsIter<'a, Trait> =
     std::iter::Chain<WriteTableTraitsIter<'a, Trait>, WriteSparseTraitsIter<'a, Trait>>;
 
 #[doc(hidden)]
-pub struct WriteTableTraitsIter<'a, Trait: ?Sized + DynQuery> {
+pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
@@ -634,7 +634,7 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized + DynQuery> {
     change_tick: u32,
 }
 
-impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
         let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
@@ -666,7 +666,7 @@ pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
     change_tick: u32,
 }
 
-impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
+impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
         let ((ptr, component_ticks), meta) = std::iter::zip(&mut self.components, &mut self.meta)
@@ -690,7 +690,7 @@ impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
 }
 
 #[doc(hidden)]
-pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
@@ -700,7 +700,7 @@ pub struct ReadAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
 }
 
 #[doc(hidden)]
-pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
+pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     registry: &'w TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
@@ -713,7 +713,7 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
 }
 
 /// Read-access to all components implementing a trait for a given entity.
-pub struct ReadTraits<'a, Trait: ?Sized + DynQuery> {
+pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     table: &'a Table,
@@ -723,7 +723,7 @@ pub struct ReadTraits<'a, Trait: ?Sized + DynQuery> {
 }
 
 /// Write-access to all components implementing a trait for a given entity.
-pub struct WriteTraits<'a, Trait: ?Sized + DynQuery> {
+pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
     // T::Storage = TableStorage
     table: &'a Table,
@@ -735,7 +735,7 @@ pub struct WriteTraits<'a, Trait: ?Sized + DynQuery> {
     change_tick: u32,
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
     type Item = ReadTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
 
@@ -825,7 +825,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, T
     }
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
     type Item = WriteTraits<'w, Trait>;
     type State = DynQueryState<Trait>;
 
@@ -921,7 +921,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
     }
 }
 
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
     type Item = &'w Trait;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
@@ -941,7 +941,7 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for ReadTraits<'w, Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
     type Item = &'w Trait;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
@@ -961,7 +961,7 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
     type Item = Mut<'w, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
@@ -985,7 +985,9 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
     }
 }
 
-impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTraits<'world, Trait> {
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local WriteTraits<'world, Trait>
+{
     type Item = &'local Trait;
     type IntoIter = CombinedReadTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
@@ -1005,7 +1007,7 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTra
     }
 }
 
-impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local mut WriteTraits<'world, Trait>
 {
     type Item = Mut<'local, Trait>;
@@ -1031,7 +1033,7 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
     }
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w Trait> {
     type ReadOnly = Self;
     type State = DynQueryState<Trait>;
 
@@ -1042,14 +1044,14 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w Trait> {
     }
 }
 
-unsafe impl<Trait: ?Sized + DynQuery> ReadOnlyWorldQuery for All<&Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&Trait> {}
 
-impl<'w, Trait: ?Sized + DynQuery> WorldQueryGats<'w> for All<&Trait> {
+impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&Trait> {
     type Fetch = ReadAllTraitsFetch<'w, Trait>;
     type _State = DynQueryState<Trait>;
 }
 
-unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w mut Trait> {
+unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w mut Trait> {
     type ReadOnly = All<&'w Trait>;
     type State = DynQueryState<Trait>;
 
@@ -1060,7 +1062,7 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> WorldQuery for All<&'w mut Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + DynQuery> WorldQueryGats<'w> for All<&mut Trait> {
+impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&mut Trait> {
     type Fetch = WriteAllTraitsFetch<'w, Trait>;
     type _State = DynQueryState<Trait>;
 }

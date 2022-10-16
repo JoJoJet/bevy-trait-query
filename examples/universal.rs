@@ -10,7 +10,7 @@ pub trait Messages: 'static {
 }
 
 // Add `WorldQuery` impls for `dyn Person`
-impl_dyn_query!(Messages);
+impl_trait_query!(Messages);
 
 #[derive(Component)]
 pub struct RecA {
