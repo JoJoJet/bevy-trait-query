@@ -749,24 +749,32 @@ pub struct All<T: ?Sized>(T);
 /// Read-access to all components implementing a trait for a given entity.
 pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
+
     table: &'a Table,
     table_row: usize,
-    // T::Storage = SparseStorage
+
+    /// This grants shared access to all sparse set components,
+    /// but in practice we will only read the components specified in `self.registry`.
+    /// The fetch impl registers read-access for all of these components,
+    /// so there will be no runtime conflicts.
     sparse_sets: &'a SparseSets,
 }
 
 /// Write-access to all components implementing a trait for a given entity.
 pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
-    // T::Storage = TableStorage
+
     table: &'a Table,
     table_row: usize,
-    // T::Storage = SparseStorage
-    sparse_sets: &'a SparseSets,
 
     last_change_tick: u32,
     change_tick: u32,
+
+    /// This grants shared mutable access to all sparse set components,
+    /// but in practice we will only modify the components specified in `self.registry`.
+    /// The fetch impl registers write-access for all of these components,
+    /// guaranteeing us exclusive access at runtime.
+    sparse_sets: &'a SparseSets,
 }
 
 #[doc(hidden)]
@@ -779,6 +787,7 @@ pub type CombinedWriteTraitsIter<'a, Trait> =
 
 #[doc(hidden)]
 pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
+    // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
@@ -801,6 +810,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
 
 #[doc(hidden)]
 pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
+    // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     entity: Entity,
@@ -825,6 +835,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
 
 #[doc(hidden)]
 pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
+    // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
@@ -857,6 +868,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
 
 #[doc(hidden)]
 pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
+    // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     entity: Entity,
