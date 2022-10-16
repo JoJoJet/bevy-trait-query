@@ -179,16 +179,18 @@ fn print_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
 
 fn age_up_fem(mut q: Query<All<&mut dyn Person>, With<Fem>>) {
     for all in &mut q {
-        for p in all {
-            p.set_age(p.age() + 1);
+        for mut p in all {
+            let age = p.age();
+            p.set_age(age + 1);
         }
     }
 }
 
 fn age_up_not(mut q: Query<All<&mut dyn Person>, Without<Fem>>) {
     for all in &mut q {
-        for p in all {
-            p.set_age(p.age() + 1);
+        for mut p in all {
+            let age = p.age();
+            p.set_age(age + 1);
         }
     }
 }

@@ -623,10 +623,12 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized + DynQuery> {
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     table: &'a Table,
     table_row: usize,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTableTraitsIter<'a, Trait> {
-    type Item = &'a mut Trait;
+    type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
         let (column, meta) = std::iter::zip(&mut self.components, &mut self.meta)
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
@@ -635,7 +637,15 @@ impl<'a, Trait: ?Sized + DynQuery> Iterator for WriteTableTraitsIter<'a, Trait> 
             let ptr = table_components.byte_add(self.table_row * meta.size_bytes);
             meta.dyn_ctor.cast_mut(ptr.assert_unique())
         };
-        Some(trait_object)
+        let component_ticks = unsafe { column.get_ticks_unchecked(self.table_row).deref_mut() };
+        Some(Mut {
+            value: trait_object,
+            ticks: Ticks {
+                component_ticks,
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
+        })
     }
 }
 
@@ -645,21 +655,30 @@ pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
     entity: Entity,
     sparse_sets: &'a SparseSets,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 impl<'a, Trait: ?Sized> Iterator for WriteSparseTraitsIter<'a, Trait> {
-    type Item = &'a mut Trait;
+    type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        let (ptr, meta) = std::iter::zip(&mut self.components, &mut self.meta).find_map(
-            |(&component, meta)| {
-                self.sparse_sets
-                    .get(component)
-                    .and_then(|set| set.get(self.entity))
-                    .zip(Some(meta))
-            },
-        )?;
+        let ((ptr, component_ticks), meta) = std::iter::zip(&mut self.components, &mut self.meta)
+            .find_map(|(&component, meta)| {
+            self.sparse_sets
+                .get(component)
+                .and_then(|set| set.get_with_ticks(self.entity))
+                .zip(Some(meta))
+        })?;
         let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr.assert_unique()) };
-        Some(trait_object)
+
+        Some(Mut {
+            value: trait_object,
+            ticks: Ticks {
+                component_ticks: unsafe { component_ticks.deref_mut() },
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
+        })
     }
 }
 
@@ -681,6 +700,9 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + DynQuery> {
     table: Option<&'w Table>,
     // T::Storage = SparseStorage
     sparse_sets: &'w SparseSets,
+
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 /// Read-access to all components implementing a trait for a given entity.
@@ -701,6 +723,9 @@ pub struct WriteTraits<'a, Trait: ?Sized + DynQuery> {
     table_row: usize,
     // T::Storage = SparseStorage
     sparse_sets: &'a SparseSets,
+
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
@@ -800,8 +825,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
     unsafe fn init(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> Self {
         Self {
             entity_table_rows: None,
@@ -810,6 +835,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
             registry: world.get_resource().unwrap_or_else(|| debug_unreachable()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
+            last_change_tick,
+            change_tick,
         }
     }
 
@@ -838,6 +865,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
             table,
             table_row,
             sparse_sets: self.sparse_sets,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         }
     }
 
@@ -853,6 +882,8 @@ unsafe impl<'w, Trait: ?Sized + DynQuery> Fetch<'w> for WriteAllTraitsFetch<'w, 
             table,
             table_row: table_row,
             sparse_sets: self.sparse_sets,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         }
     }
 
@@ -924,7 +955,7 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for &ReadTraits<'w, Trait> {
 }
 
 impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
-    type Item = &'w mut Trait;
+    type Item = Mut<'w, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
@@ -932,12 +963,16 @@ impl<'w, Trait: ?Sized + DynQuery> IntoIterator for WriteTraits<'w, Trait> {
             meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         };
         let sparse = WriteSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         };
         table.chain(sparse)
     }
@@ -966,7 +1001,7 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator for &'local WriteTra
 impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
     for &'local mut WriteTraits<'world, Trait>
 {
-    type Item = &'local mut Trait;
+    type Item = Mut<'local, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
@@ -974,12 +1009,16 @@ impl<'world, 'local, Trait: ?Sized + DynQuery> IntoIterator
             meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         };
         let sparse = WriteSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row],
             sparse_sets: self.sparse_sets,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         };
         table.chain(sparse)
     }

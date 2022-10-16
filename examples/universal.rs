@@ -86,7 +86,7 @@ fn print_messages(receivers: Query<All<&dyn Messages>>) {
 
 fn send_messages(mut receivers: Query<All<&mut dyn Messages>>) {
     for (i, receiver) in receivers.iter_mut().enumerate() {
-        for m in receiver {
+        for mut m in receiver {
             m.send_message(&i);
         }
     }
