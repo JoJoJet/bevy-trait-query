@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
 }
 
 // Prints the name and age of every `Person`.
-fn print_info(people: Query<&dyn Person>) {
+fn print_info(people: Query<One<&dyn Person>>) {
     println!("All people:");
     for person in &people {
         println!("{}: {}", person.name(), person.age());
@@ -71,7 +71,7 @@ fn print_info(people: Query<&dyn Person>) {
     println!();
 }
 
-fn age_up(mut people: Query<&mut dyn Person>) {
+fn age_up(mut people: Query<One<&mut dyn Person>>) {
     for mut person in &mut people {
         let new_age = person.age() + 1;
         person.set_age(new_age);

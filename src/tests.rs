@@ -86,7 +86,7 @@ fn existential1() {
     );
 }
 
-fn print_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
+fn print_info(people: Query<One<&dyn Person>>, mut output: ResMut<Output>) {
     output.0.push("All people:".to_string());
     for person in &people {
         output
@@ -96,7 +96,7 @@ fn print_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
     output.0.push(default());
 }
 
-fn age_up(mut people: Query<&mut dyn Person>) {
+fn age_up(mut people: Query<One<&mut dyn Person>>) {
     for mut person in &mut people {
         let new_age = person.age() + 1;
         person.set_age(new_age);

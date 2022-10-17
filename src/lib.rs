@@ -77,7 +77,7 @@
 //! }
 //! ```
 //!
-//! Note that `&dyn Trait` and `&mut dyn Trait` are referred to as "existential" queries,
+//! Note that `One<&dyn Trait>` and `One<&mut dyn Trait>` are referred to as "existential" queries,
 //! which means that they will only return one implementation of the trait for a given entity.
 //!
 //! If you expect to have multiple components implementing the trait for a given entity,
@@ -253,40 +253,6 @@ macro_rules! impl_trait_query {
                 ptr as *mut T as *mut _
             }
         }
-
-        unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
-            type ReadOnly = Self;
-            type State = $crate::DynQueryState<dyn $trait>;
-
-            fn shrink<'wlong: 'wshort, 'wshort>(
-                item: bevy::ecs::query::QueryItem<'wlong, Self>,
-            ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-                item
-            }
-        }
-
-        unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
-
-        impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
-            type Fetch = $crate::ReadTraitFetch<'w, dyn $trait>;
-            type _State = $crate::DynQueryState<dyn $trait>;
-        }
-
-        unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
-            type ReadOnly = &'w dyn $trait;
-            type State = $crate::DynQueryState<dyn $trait>;
-
-            fn shrink<'wlong: 'wshort, 'wshort>(
-                item: bevy::ecs::query::QueryItem<'wlong, Self>,
-            ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-                item
-            }
-        }
-
-        impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
-            type Fetch = $crate::WriteTraitFetch<'w, dyn $trait>;
-            type _State = $crate::DynQueryState<dyn $trait>;
-        }
     };
 }
 
@@ -374,6 +340,43 @@ where
     let b = b.into_iter();
     debug_assert_eq!(a.len(), b.len());
     ZipExact { a, b }
+}
+
+/// Query adapter for entities with a single trait impl.
+pub struct One<T>(pub T);
+
+impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a Trait> {
+    type Fetch = ReadTraitFetch<'w, Trait>;
+    type _State = DynQueryState<Trait>;
+}
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
+    type ReadOnly = Self;
+    type State = DynQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
+}
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a Trait> {}
+
+impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a mut Trait> {
+    type Fetch = WriteTraitFetch<'w, Trait>;
+    type _State = DynQueryState<Trait>;
+}
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
+    type ReadOnly = One<&'a Trait>;
+    type State = DynQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
 }
 
 pub struct ReadTraitFetch<'w, Trait: ?Sized> {

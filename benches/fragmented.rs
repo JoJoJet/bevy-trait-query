@@ -86,7 +86,7 @@ pub fn concrete(c: &mut Criterion) {
 }
 pub fn existential(c: &mut Criterion) {
     let mut benchmark = Benchmark::new();
-    let mut query = benchmark.0.query::<&mut dyn Messages>();
+    let mut query = benchmark.0.query::<One<&mut dyn Messages>>();
     let mut output = Vec::new();
     c.bench_function("exisential-fragmented", |b| {
         b.iter(|| {
