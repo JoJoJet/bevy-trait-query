@@ -102,7 +102,7 @@
 //!
 //! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 //!
-//! |                   | Concrete type | Trait-existential | Trait-universal |
+//! |                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
 //! |-------------------|----------------|-------------------|-----------------|
 //! | 1 match           | 16.931 µs      | 29.692 µs         | 63.095 µs       |
 //! | 2 matches         | 17.508 µs      | 30.859 µs         | 101.88 µs       |
@@ -110,7 +110,7 @@
 //!
 //! On the nightly branch, performance is comparable to concrete queries:
 //!
-//! |                   | Concrete type | Trait-existential | Trait-universal |
+//! |                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
 //! |-------------------|----------------|-------------------|-----------------|
 //! | 1 match           | 17.017 µs      | 20.432 µs         | 61.896 µs       |
 //! | 2 matches         | 17.560 µs      | 21.556 µs         | 90.160 µs       |

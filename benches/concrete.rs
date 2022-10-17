@@ -84,12 +84,12 @@ impl<'w> Benchmark<'w> {
 
 pub fn one(c: &mut Criterion) {
     let mut benchmark = Benchmark::one();
-    c.bench_function("concrete-one", |b| b.iter(|| benchmark.run()));
+    c.bench_function("concrete - 1 match", |b| b.iter(|| benchmark.run()));
     eprintln!("{}", benchmark.2.len());
 }
 pub fn multiple(c: &mut Criterion) {
     let mut benchmark = Benchmark::multiple();
-    c.bench_function("concrete-multiple", |b| b.iter(|| benchmark.run()));
+    c.bench_function("concrete - 2 matches", |b| b.iter(|| benchmark.run()));
     eprintln!("{}", benchmark.2.len());
 }
 

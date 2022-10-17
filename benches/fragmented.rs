@@ -75,7 +75,7 @@ pub fn concrete(c: &mut Criterion) {
     let mut benchmark = Benchmark::new();
     let mut query = benchmark.0.query::<&mut RecA>();
     let mut output = Vec::new();
-    c.bench_function("concrete-fragmented", |b| {
+    c.bench_function("concrete - fragmented", |b| {
         b.iter(|| {
             for x in query.iter_mut(&mut benchmark.0) {
                 output.push(x.messages().len());
@@ -84,11 +84,11 @@ pub fn concrete(c: &mut Criterion) {
     });
     eprintln!("{}", output.len());
 }
-pub fn existential(c: &mut Criterion) {
+pub fn one(c: &mut Criterion) {
     let mut benchmark = Benchmark::new();
     let mut query = benchmark.0.query::<One<&mut dyn Messages>>();
     let mut output = Vec::new();
-    c.bench_function("exisential-fragmented", |b| {
+    c.bench_function("One<> - fragmented", |b| {
         b.iter(|| {
             for x in query.iter_mut(&mut benchmark.0) {
                 output.push(x.messages().len());
@@ -97,11 +97,11 @@ pub fn existential(c: &mut Criterion) {
     });
     eprintln!("{}", output.len());
 }
-pub fn universal(c: &mut Criterion) {
+pub fn all(c: &mut Criterion) {
     let mut benchmark = Benchmark::new();
     let mut query = benchmark.0.query::<All<&mut dyn Messages>>();
     let mut output = Vec::new();
-    c.bench_function("universal-fragmented", |b| {
+    c.bench_function("All<> - fragmented", |b| {
         b.iter(|| {
             for all in query.iter_mut(&mut benchmark.0) {
                 for x in all {
@@ -113,5 +113,5 @@ pub fn universal(c: &mut Criterion) {
     eprintln!("{}", output.len());
 }
 
-criterion_group!(fragmented, concrete, existential, universal);
+criterion_group!(fragmented, concrete, one, all);
 criterion_main!(fragmented);

@@ -46,7 +46,7 @@ impl Person for Dolphin {
 }
 
 #[test]
-fn existential1() {
+fn one1() {
     let mut world = World::new();
     world.init_resource::<Output>();
     world
@@ -116,7 +116,7 @@ fn pluralize(mut q: Query<&mut Human, Without<Fem>>) {
 }
 
 #[test]
-fn universal1() {
+fn all1() {
     let mut world = World::new();
     world.init_resource::<Output>();
     world

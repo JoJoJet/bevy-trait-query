@@ -22,11 +22,11 @@ name = "concrete"
 harness = false
 
 [[bench]]
-name = "universal"
+name = "all"
 harness = false
 
 [[bench]]
-name = "existential"
+name = "one"
 harness = false
 
 [[bench]]
