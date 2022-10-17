@@ -1,6 +1,8 @@
 //! An implementation of trait queries for the bevy game engine.
 //!
 //! Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
+//! The current published version depends on bevy 0.8, although there is a branch on github
+//! that supports the upcoming version.
 //!
 //! This crate is implementation of the following RFC: https://github.com/bevyengine/rfcs/pull/39.
 //!
