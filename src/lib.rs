@@ -21,10 +21,12 @@
 //! use bevy::prelude::*;
 //! use bevy_trait_query::{impl_trait_query, RegisterExt};
 //!
-//! // Trait for entities that should show text when the mouse hovers over them.
+//! // Some trait that we wish to use in queries.
 //! pub trait Tooltip: 'static {
 //!     fn tooltip(&self) -> &str;
 //! }
+//!
+//! // Add the necessary impls for querying.
 //! impl_trait_query!(Tooltip);
 //!
 //! #[derive(Component)]
@@ -73,10 +75,9 @@
 //!             # true
 //!         };
 //!         if mouse_hovered {
-//!             println!("{}", tt.tooltip())
+//!             println!("{}", tt.tooltip());
 //!         }
 //!     }
-//!     // Prints 'Fourier', 'Run!'.
 //! }
 //!
 //! use bevy_trait_query::All;
@@ -85,13 +86,14 @@
 //!     query: Query<All<&dyn Tooltip>>,
 //! ) {
 //!     for tooltips in &query {
+//!         // Loop over all tooltip impls for this entity.
 //!         for tt in tooltips {
 //!             let mouse_hovered = {
 //!                 // ...
 //!                 # true
 //!             };
 //!             if mouse_hovered {
-//!                 println!("{}", tt.tooltip())
+//!                 println!("{}", tt.tooltip());
 //!             }
 //!         }
 //!     }

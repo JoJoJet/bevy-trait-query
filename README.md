@@ -25,10 +25,12 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 use bevy::prelude::*;
 use bevy_trait_query::{impl_trait_query, RegisterExt};
 
-// Trait for entities that should show text when the mouse hovers over them.
+// Some trait that we wish to use in queries.
 pub trait Tooltip: 'static {
     fn tooltip(&self) -> &str;
 }
+
+// Add the necessary impls for querying.
 impl_trait_query!(Tooltip);
 
 #[derive(Component)]
@@ -75,10 +77,9 @@ fn show_tooltip(
             // ...
         };
         if mouse_hovered {
-            println!("{}", tt.tooltip())
+            println!("{}", tt.tooltip());
         }
     }
-    // Prints 'Fourier', 'Run!'.
 }
 
 use bevy_trait_query::All;
@@ -87,12 +88,13 @@ fn show_all_tooltips(
     query: Query<All<&dyn Tooltip>>,
 ) {
     for tooltips in &query {
+        // Loop over all tooltip impls for this entity.
         for tt in tooltips {
             let mouse_hovered = {
                 // ...
             };
             if mouse_hovered {
-                println!("{}", tt.tooltip())
+                println!("{}", tt.tooltip());
             }
         }
     }
