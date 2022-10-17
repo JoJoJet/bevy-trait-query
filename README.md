@@ -56,6 +56,7 @@ fn main() {
         .register_component_as::<dyn Tooltip, Monster>()
         .add_startup_system(setup)
         .add_system(show_tooltip)
+        .add_system(show_all_tooltips)
 }
 
 fn setup(mut commands: Commands) {
@@ -63,8 +64,10 @@ fn setup(mut commands: Commands) {
     commands.spawn().insert(Monster);
 }
 
+use bevy_trait_query::One;
 fn show_tooltip(
-    query: Query<&dyn Tooltip>,
+    // Query for entities with exactly one component implementing the trait.
+    query: Query<One<&dyn Tooltip>>,
     // ...
 ) {
     for tt in &query {
@@ -77,14 +80,24 @@ fn show_tooltip(
     }
     // Prints 'Fourier', 'Run!'.
 }
+
+use bevy_trait_query::All;
+fn show_all_tooltips(
+    // Query that returns all trait impls for each entity.
+    query: Query<All<&dyn Tooltip>>,
+) {
+    for tooltips in &query {
+        for t in tooltips {
+            
+        let mouse_hovered = {
+            // ...
+        };
+        if mouse_hovered {
+            println!("{}", tt.tooltip())
+        }
+    }
+}
 ```
-
-Note that `&dyn Trait` and `&mut dyn Trait` are referred to as "existential" queries,
-which means that they will only return one implementation of the trait for a given entity.
-
-If you expect to have multiple components implementing the trait for a given entity,
-you should instead use "universal" queries: `All<&dyn Trait>`, `All<&mut dyn Trait>`.
-These queries will return every component implementing `Trait` for each entity.
 
 ## Performance
 

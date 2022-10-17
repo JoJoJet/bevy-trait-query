@@ -19,7 +19,7 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//! use bevy_trait_query::{impl_trait_query, RegisterExt, One};
+//! use bevy_trait_query::{impl_trait_query, RegisterExt};
 //!
 //! // Trait for entities that should show text when the mouse hovers over them.
 //! pub trait Tooltip: 'static {
@@ -52,6 +52,7 @@
 //!         .register_component_as::<dyn Tooltip, Monster>()
 //!         .add_startup_system(setup)
 //!         .add_system(show_tooltip)
+//!         .add_system(show_all_tooltips)
 //!         # .update();
 //! }
 //!
@@ -60,7 +61,9 @@
 //!     commands.spawn().insert(Monster);
 //! }
 //!
+//! use bevy_trait_query::One;
 //! fn show_tooltip(
+//!     // Query for entities with exactly one component implementing the trait.
 //!     query: Query<One<&dyn Tooltip>>,
 //!     // ...
 //! ) {
@@ -75,14 +78,25 @@
 //!     }
 //!     // Prints 'Fourier', 'Run!'.
 //! }
+//!
+//! use bevy_trait_query::All;
+//! fn show_all_tooltips(
+//!     // Query that returns all trait impls for each entity.
+//!     query: Query<All<&dyn Tooltip>>,
+//! ) {
+//!     for tooltips in &query {
+//!         for tt in tooltips {
+//!             let mouse_hovered = {
+//!                 // ...
+//!                 # true
+//!             };
+//!             if mouse_hovered {
+//!                 println!("{}", tt.tooltip())
+//!             }
+//!         }
+//!     }
+//! }
 //! ```
-//!
-//! Note that `One<&dyn Trait>` and `One<&mut dyn Trait>` are referred to as "existential" queries,
-//! which means that they will only return one implementation of the trait for a given entity.
-//!
-//! If you expect to have multiple components implementing the trait for a given entity,
-//! you should instead use "universal" queries: `All<&dyn Trait>`, `All<&mut dyn Trait>`.
-//! These queries will return every component implementing `Trait` for each entity.
 //!
 //! # Performance
 //!
