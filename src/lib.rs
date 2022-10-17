@@ -19,7 +19,7 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//! use bevy_trait_query::{impl_trait_query, RegisterExt};
+//! use bevy_trait_query::{impl_trait_query, RegisterExt, One};
 //!
 //! // Trait for entities that should show text when the mouse hovers over them.
 //! pub trait Tooltip: 'static {
@@ -61,7 +61,7 @@
 //! }
 //!
 //! fn show_tooltip(
-//!     query: Query<&dyn Tooltip>,
+//!     query: Query<One<&dyn Tooltip>>,
 //!     // ...
 //! ) {
 //!     for tt in &query {
