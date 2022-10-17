@@ -15,6 +15,8 @@ pub struct Ticks<'a> {
 }
 
 impl<T: ?Sized> DetectChanges for Mut<'_, T> {
+    type Inner = T;
+
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
@@ -39,6 +41,16 @@ impl<T: ?Sized> DetectChanges for Mut<'_, T> {
     #[inline]
     fn last_changed(&self) -> u32 {
         self.ticks.last_change_tick
+    }
+
+    #[inline]
+    fn set_last_changed(&mut self, last_change_tick: u32) {
+        self.ticks.last_change_tick = last_change_tick;
+    }
+
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
     }
 }
 
