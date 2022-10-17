@@ -50,9 +50,7 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         for _ in 0..10_000 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
+            world.spawn((Name::new("Hello"), RecA { messages: vec![] }));
         }
 
         let query = world.query();
@@ -62,7 +60,7 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         for _ in 0..10_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Name::new("Hello"),
                 RecB { messages: vec![] },
                 RecA { messages: vec![] },

@@ -53,14 +53,10 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..5_000 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
+            world.spawn((Name::new("Hello"), RecA { messages: vec![] }));
         }
         for _ in 0..5_000 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
+            world.spawn((Name::new("Hello"), RecB { messages: vec![] }));
         }
 
         let query = world.query::<All<&dyn Messages>>();
@@ -73,7 +69,7 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..10_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Name::new("Hello"),
                 RecA { messages: vec![] },
                 RecB { messages: vec![] },
@@ -91,17 +87,13 @@ impl<'w> Benchmark<'w> {
         world.register_component_as::<dyn Messages, RecB>();
 
         for _ in 0..2_500 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecA { messages: vec![] }));
+            world.spawn((Name::new("Hello"), RecA { messages: vec![] }));
         }
         for _ in 0..2_500 {
-            world
-                .spawn()
-                .insert_bundle((Name::new("Hello"), RecB { messages: vec![] }));
+            world.spawn((Name::new("Hello"), RecB { messages: vec![] }));
         }
         for _ in 0..5_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Name::new("Hello"),
                 RecA { messages: vec![] },
                 RecB { messages: vec![] },

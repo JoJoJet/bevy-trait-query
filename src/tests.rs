@@ -1,7 +1,7 @@
 use super::*;
 use std::fmt::Display;
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct Output(Vec<String>);
 
 pub trait Person: 'static {
@@ -53,11 +53,9 @@ fn one1() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    world.spawn().insert(Human("Garbanzo".to_owned(), 7));
-    world
-        .spawn()
-        .insert_bundle((Human("Garbanzo".to_owned(), 14), Fem));
-    world.spawn().insert(Dolphin(27));
+    world.spawn(Human("Garbanzo".to_owned(), 7));
+    world.spawn((Human("Garbanzo".to_owned(), 14), Fem));
+    world.spawn(Dolphin(27));
 
     let mut stage = SystemStage::parallel();
     stage
@@ -123,14 +121,10 @@ fn all1() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    world.spawn().insert(Human("Henry".to_owned(), 22));
-    world
-        .spawn()
-        .insert_bundle((Human("Eliza".to_owned(), 31), Fem, Dolphin(6)));
-    world
-        .spawn()
-        .insert_bundle((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
-    world.spawn().insert(Dolphin(27));
+    world.spawn(Human("Henry".to_owned(), 22));
+    world.spawn((Human("Eliza".to_owned(), 31), Fem, Dolphin(6)));
+    world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
+    world.spawn(Dolphin(27));
 
     let mut stage = SystemStage::parallel();
     stage
@@ -235,10 +229,8 @@ fn sparse1() {
         .register_component_as::<dyn Messages, RecA>()
         .register_component_as::<dyn Messages, RecB>();
 
-    world.spawn().insert(RecA(vec![]));
-    world
-        .spawn()
-        .insert_bundle((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
+    world.spawn(RecA(vec![]));
+    world.spawn((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
 
     let mut stage = SystemStage::parallel();
     stage
@@ -277,6 +269,6 @@ fn print_messages(q: Query<All<&dyn Messages>>, mut output: ResMut<Output>) {
 
 fn spawn_sparse(mut commands: Commands) {
     for i in 0..3 {
-        commands.spawn().insert(RecB(vec![format!("Sparse #{i}")]));
+        commands.spawn(RecB(vec![format!("Sparse #{i}")]));
     }
 }
