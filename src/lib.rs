@@ -103,7 +103,7 @@
 //! | 1-2 matches       | -              | 22.247 µs         | 75.418 µs       |
 //!
 
-use std::cell::UnsafeCell;
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 use bevy::{
     ecs::{
@@ -257,12 +257,12 @@ macro_rules! impl_trait_query {
 }
 
 #[doc(hidden)]
-pub struct DynQueryState<Trait: ?Sized> {
+pub struct OneQueryState<Trait: ?Sized> {
     components: Box<[ComponentId]>,
     meta: Box<[TraitImplMeta<Trait>]>,
 }
 
-impl<Trait: ?Sized + TraitQuery> FetchState for DynQueryState<Trait> {
+impl<Trait: ?Sized + TraitQuery> FetchState for OneQueryState<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
         fn error<T: ?Sized + 'static>() -> ! {
@@ -282,7 +282,12 @@ impl<Trait: ?Sized + TraitQuery> FetchState for DynQueryState<Trait> {
         }
     }
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        self.components.iter().copied().any(set_contains_id)
+        let match_count = self
+            .components
+            .iter()
+            .filter(|&&c| set_contains_id(c))
+            .count();
+        match_count == 1
     }
 }
 
@@ -347,12 +352,12 @@ pub struct One<T>(pub T);
 
 impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a Trait> {
     type Fetch = ReadTraitFetch<'w, Trait>;
-    type _State = DynQueryState<Trait>;
+    type _State = OneQueryState<Trait>;
 }
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     type ReadOnly = Self;
-    type State = DynQueryState<Trait>;
+    type State = OneQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -365,12 +370,12 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a Trait
 
 impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a mut Trait> {
     type Fetch = WriteTraitFetch<'w, Trait>;
-    type _State = DynQueryState<Trait>;
+    type _State = OneQueryState<Trait>;
 }
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type ReadOnly = One<&'a Trait>;
-    type State = DynQueryState<Trait>;
+    type State = OneQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -414,7 +419,7 @@ enum ReadStorage<'w, Trait: ?Sized> {
 /// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Trait> {
     type Item = &'w Trait;
-    type State = DynQueryState<Trait>;
+    type State = OneQueryState<Trait>;
 
     unsafe fn init(
         world: &'w World,
@@ -589,7 +594,7 @@ enum WriteStorage<'w, Trait: ?Sized> {
 /// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Trait> {
     type Item = Mut<'w, Trait>;
-    type State = DynQueryState<Trait>;
+    type State = OneQueryState<Trait>;
 
     unsafe fn init(
         world: &'w World,
@@ -971,6 +976,36 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
 }
 
 #[doc(hidden)]
+pub struct AllQueryState<Trait: ?Sized> {
+    components: Box<[ComponentId]>,
+    _marker: PhantomData<TraitImplMeta<Trait>>,
+}
+
+impl<Trait: ?Sized + TraitQuery> FetchState for AllQueryState<Trait> {
+    fn init(world: &mut World) -> Self {
+        #[cold]
+        fn error<T: ?Sized + 'static>() -> ! {
+            panic!(
+                "no components found matching `{}`, did you forget to register them?",
+                std::any::type_name::<T>()
+            )
+        }
+
+        let mut registry = world
+            .get_resource_mut::<TraitImplRegistry<Trait>>()
+            .unwrap_or_else(|| error::<Trait>());
+        registry.seal();
+        Self {
+            components: registry.components.clone().into_boxed_slice(),
+            _marker: PhantomData,
+        }
+    }
+    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        self.components.iter().copied().any(set_contains_id)
+    }
+}
+
+#[doc(hidden)]
 pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
     entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
@@ -994,7 +1029,7 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
 /// which is used to match archetypes and register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w, Trait> {
     type Item = ReadTraits<'w, Trait>;
-    type State = DynQueryState<Trait>;
+    type State = AllQueryState<Trait>;
 
     unsafe fn init(
         world: &'w World,
@@ -1085,7 +1120,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadAllTraitsFetch<'w,
 /// which is used to match archetypes and register world access.
 unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteAllTraitsFetch<'w, Trait> {
     type Item = WriteTraits<'w, Trait>;
-    type State = DynQueryState<Trait>;
+    type State = AllQueryState<Trait>;
 
     unsafe fn init(
         world: &'w World,
@@ -1291,7 +1326,7 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 
 unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w Trait> {
     type ReadOnly = Self;
-    type State = DynQueryState<Trait>;
+    type State = AllQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -1304,12 +1339,12 @@ unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&Trait> {}
 
 impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&Trait> {
     type Fetch = ReadAllTraitsFetch<'w, Trait>;
-    type _State = DynQueryState<Trait>;
+    type _State = AllQueryState<Trait>;
 }
 
 unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w mut Trait> {
     type ReadOnly = All<&'w Trait>;
-    type State = DynQueryState<Trait>;
+    type State = AllQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: bevy::ecs::query::QueryItem<'wlong, Self>,
@@ -1320,7 +1355,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w mut Trait> {
 
 impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&mut Trait> {
     type Fetch = WriteAllTraitsFetch<'w, Trait>;
-    type _State = DynQueryState<Trait>;
+    type _State = AllQueryState<Trait>;
 }
 
 #[track_caller]
