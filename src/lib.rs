@@ -235,11 +235,7 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 
 #[doc(hidden)]
 pub mod imports {
-    pub use bevy::ecs::{
-        component::{Component, TableStorage},
-        query::{ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
-    };
-    pub use bevy::ptr::{Ptr, PtrMut};
+    pub use bevy::ecs::component::Component;
 }
 
 #[macro_export]
