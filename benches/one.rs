@@ -66,25 +66,8 @@ impl<'w> Benchmark<'w> {
         let query = world.query();
         Self(world, query, default())
     }
-    fn multiple() -> Self {
-        let mut world = World::new();
-
-        world.register_component_as::<dyn Messages, RecA>();
-        world.register_component_as::<dyn Messages, RecB>();
-
-        for _ in 0..10_000 {
-            world.spawn().insert_bundle((
-                Name::new("Hello"),
-                RecA { messages: vec![] },
-                RecB { messages: vec![] },
-            ));
-        }
-
-        let query = world.query();
-        Self(world, query, default())
-    }
-    // Queries with only one, and queries with mutliple.
-    pub fn distributed() -> Self {
+    // There will be some entities that have multiple trait impls, and will be filtered out.
+    pub fn filtered() -> Self {
         let mut world = World::new();
 
         world.register_component_as::<dyn Messages, RecA>();
@@ -123,19 +106,14 @@ impl<'w> Benchmark<'w> {
 
 pub fn one_match(c: &mut Criterion) {
     let mut benchmark = Benchmark::one();
-    c.bench_function("One<> - 1 match", |b| b.iter(|| benchmark.run()));
+    c.bench_function("One<>", |b| b.iter(|| benchmark.run()));
     eprintln!("{}", benchmark.2.len());
 }
-pub fn two_matches(c: &mut Criterion) {
-    let mut benchmark = Benchmark::multiple();
-    c.bench_function("One<> - 2 matches", |b| b.iter(|| benchmark.run()));
-    eprintln!("{}", benchmark.2.len());
-}
-pub fn one_two_matches(c: &mut Criterion) {
-    let mut benchmark = Benchmark::distributed();
-    c.bench_function("One<> - 1-2 matches", |b| b.iter(|| benchmark.run()));
+pub fn filtering(c: &mut Criterion) {
+    let mut benchmark = Benchmark::filtered();
+    c.bench_function("One<> - filtering", |b| b.iter(|| benchmark.run()));
     eprintln!("{}", benchmark.2.len());
 }
 
-criterion_group!(one, one_match, two_matches, one_two_matches);
+criterion_group!(one, one_match, filtering);
 criterion_main!(one);
