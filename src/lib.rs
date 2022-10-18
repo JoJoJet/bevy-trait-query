@@ -156,6 +156,7 @@ pub mod change_detection;
 
 pub trait TraitQuery: 'static {}
 
+#[doc(hidden)]
 pub trait TraitQueryMarker<Trait: ?Sized + TraitQuery> {
     type Covered: Component;
     /// Casts an untyped pointer to a trait object pointer,
@@ -342,7 +343,7 @@ impl<Trait: ?Sized> DynCtor<Trait> {
     }
 }
 
-pub struct ZipExact<A, B> {
+struct ZipExact<A, B> {
     a: A,
     b: B,
 }
@@ -413,6 +414,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 }
 
+#[doc(hidden)]
 pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
     // in practice we will only read the components specified in the `FetchState`.
@@ -584,6 +586,7 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for ReadTraitFetch<'w, Tra
     }
 }
 
+#[doc(hidden)]
 pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     // While we have shared mutable access to all sparse set components,
     // in practice we will only modify the components specified in the `FetchState`.
