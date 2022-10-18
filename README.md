@@ -99,7 +99,17 @@ fn show_all_tooltips(
 }
 ```
 
-### Poor use cases
+## Performance
+
+The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
+
+|                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
+|-------------------|----------------|-------------------|-----------------|
+| 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
+| 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
+| 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
+
+## Poor use cases
 
 You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
 
@@ -117,24 +127,6 @@ and query for that directly, making `Person` a simple marker component.
 Trait queries are often the most *obvious* solution to a problem, but not always the best one.
 For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
 https://github.com/bevyengine/rfcs/pull/39.
-
-## Performance
-
-The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
-
-|                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
-|-------------------|----------------|-------------------|-----------------|
-| 1 match           | 16.931 µs      | 29.692 µs         | 63.095 µs       |
-| 2 matches         | 17.508 µs      | -                 | 101.88 µs       |
-| 1-2 matches       | -              | 28.840 µs         | 83.035 µs       |
-
-On the nightly branch, performance is comparable to concrete queries:
-
-|                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
-|-------------------|----------------|-------------------|-----------------|
-| 1 match           | 17.017 µs      | 20.432 µs         | 61.896 µs       |
-| 2 matches         | 17.560 µs      | -                 | 90.160 µs       |
-| 1-2 matches       | -              | 22.247 µs         | 75.418 µs       |
 
 <!-- cargo-rdme end -->
 
