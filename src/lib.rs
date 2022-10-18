@@ -400,22 +400,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a Trait> {}
 
-impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a mut Trait> {
-    type Fetch = WriteTraitFetch<'w, Trait>;
-    type _State = OneQueryState<Trait>;
-}
-
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
-    type ReadOnly = One<&'a Trait>;
-    type State = OneQueryState<Trait>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(
-        item: bevy::ecs::query::QueryItem<'wlong, Self>,
-    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-        item
-    }
-}
-
 #[doc(hidden)]
 pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
@@ -622,6 +606,22 @@ enum WriteStorage<'w, Trait: ?Sized> {
         entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
     },
+}
+
+impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a mut Trait> {
+    type Fetch = WriteTraitFetch<'w, Trait>;
+    type _State = OneQueryState<Trait>;
+}
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
+    type ReadOnly = One<&'a Trait>;
+    type State = OneQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
 }
 
 /// SAFETY: We only access the components registered in `DynQueryState`.
@@ -1058,6 +1058,40 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     change_tick: u32,
 }
 
+unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w Trait> {
+    type ReadOnly = Self;
+    type State = AllQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
+}
+
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&Trait> {}
+
+impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&Trait> {
+    type Fetch = ReadAllTraitsFetch<'w, Trait>;
+    type _State = AllQueryState<Trait>;
+}
+
+unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w mut Trait> {
+    type ReadOnly = All<&'w Trait>;
+    type State = AllQueryState<Trait>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: bevy::ecs::query::QueryItem<'wlong, Self>,
+    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
+        item
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&mut Trait> {
+    type Fetch = WriteAllTraitsFetch<'w, Trait>;
+    type _State = AllQueryState<Trait>;
+}
+
 /// SAFETY: We only access the components registered in the trait registry.
 /// This is known to match the set of components in the `DynQueryState`,
 /// which is used to match archetypes and register world access.
@@ -1356,40 +1390,6 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
         };
         table.chain(sparse)
     }
-}
-
-unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w Trait> {
-    type ReadOnly = Self;
-    type State = AllQueryState<Trait>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(
-        item: bevy::ecs::query::QueryItem<'wlong, Self>,
-    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-        item
-    }
-}
-
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&Trait> {}
-
-impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&Trait> {
-    type Fetch = ReadAllTraitsFetch<'w, Trait>;
-    type _State = AllQueryState<Trait>;
-}
-
-unsafe impl<'w, Trait: ?Sized + TraitQuery> WorldQuery for All<&'w mut Trait> {
-    type ReadOnly = All<&'w Trait>;
-    type State = AllQueryState<Trait>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(
-        item: bevy::ecs::query::QueryItem<'wlong, Self>,
-    ) -> bevy::ecs::query::QueryItem<'wshort, Self> {
-        item
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&mut Trait> {
-    type Fetch = WriteAllTraitsFetch<'w, Trait>;
-    type _State = AllQueryState<Trait>;
 }
 
 #[track_caller]
