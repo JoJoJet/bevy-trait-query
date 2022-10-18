@@ -60,8 +60,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn().insert(Person("Fourier".to_owned()));
-    commands.spawn().insert(Monster);
+    commands.spawn(Person("Fourier".to_owned()));
+    commands.spawn(Monster);
 }
 
 use bevy_trait_query::One;
