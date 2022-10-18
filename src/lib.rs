@@ -98,7 +98,17 @@
 //! }
 //! ```
 //!
-//! ## Poor use cases
+//! # Performance
+//!
+//! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
+//!
+//! |                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
+//! |-------------------|----------------|-------------------|-----------------|
+//! | 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
+//! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
+//! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
+//!
+//! # Poor use cases
 //!
 //! You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
 //!
@@ -116,16 +126,6 @@
 //! Trait queries are often the most *obvious* solution to a problem, but not always the best one.
 //! For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
 //! https://github.com/bevyengine/rfcs/pull/39.
-//!
-//! # Performance
-//!
-//! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
-//!
-//! |                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
-//! |-------------------|----------------|-------------------|-----------------|
-//! | 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
-//! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
-//! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
 
 use std::{cell::UnsafeCell, marker::PhantomData};
