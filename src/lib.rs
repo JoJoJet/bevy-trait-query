@@ -231,15 +231,15 @@ impl<T: ?Sized> Default for TraitImplRegistry<T> {
 
 impl<Trait: ?Sized + TraitQuery> TraitImplRegistry<Trait> {
     fn register<C: Component>(&mut self, component: ComponentId, meta: TraitImplMeta<Trait>) {
+        // Don't register the same component multiple times.
+        if self.components.contains(&component) {
+            return;
+        }
+
         if self.sealed {
             // It is not possible to update the `FetchState` for a given system after the game has started,
             // so for explicitness, let's panic instead of having a trait impl silently get forgotten.
             panic!("Cannot register new trait impls after the game has started");
-        }
-
-        // Don't register the same component multiple times.
-        if self.components.contains(&component) {
-            return;
         }
 
         self.components.push(component);
