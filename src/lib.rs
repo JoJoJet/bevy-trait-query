@@ -154,6 +154,7 @@ mod tests;
 
 pub mod change_detection;
 
+/// Marker for traits that can be used in queries.
 pub trait TraitQuery: 'static {}
 
 #[doc(hidden)]
@@ -164,6 +165,7 @@ pub trait TraitQueryMarker<Trait: ?Sized + TraitQuery> {
     fn cast(_: *mut u8) -> *mut Trait;
 }
 
+/// Extension methods for registering components with trait queries.
 pub trait RegisterExt {
     fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
@@ -377,7 +379,7 @@ where
     ZipExact { a, b }
 }
 
-/// Query adapter for entities with a single trait impl.
+/// [`WorldQuery`] adapter that fetches entities with exactly one component implementing a trait.
 pub struct One<T>(pub T);
 
 impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a Trait> {
