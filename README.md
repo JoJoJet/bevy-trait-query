@@ -132,4 +132,4 @@ https://github.com/bevyengine/rfcs/pull/39.
 
 # License
 
-MIT or APACHE-2.0
+[MIT](LICENSE-MIT) or [APACHE-2.0](LICENSE-APACHE)
