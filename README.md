@@ -82,7 +82,6 @@ fn show_tooltips(
     }
 }
 
-
 use bevy_trait_query::One;
 fn show_tooltips_one(
     // If you expect to only have one trait impl per entity, you should use the `One` filter.
