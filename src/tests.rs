@@ -159,7 +159,7 @@ fn all1() {
 }
 
 // Prints the name and age of every `Person`.
-fn print_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_all_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
     output.0.push("All people:".to_string());
     for all in &people {
         for person in all {
@@ -171,7 +171,7 @@ fn print_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
     output.0.push(default());
 }
 
-fn age_up_fem(mut q: Query<All<&mut dyn Person>, With<Fem>>) {
+fn age_up_fem(mut q: Query<&mut dyn Person, With<Fem>>) {
     for all in &mut q {
         for mut p in all {
             let age = p.age();
@@ -180,7 +180,7 @@ fn age_up_fem(mut q: Query<All<&mut dyn Person>, With<Fem>>) {
     }
 }
 
-fn age_up_not(mut q: Query<All<&mut dyn Person>, Without<Fem>>) {
+fn age_up_not(mut q: Query<&mut dyn Person, Without<Fem>>) {
     for all in &mut q {
         for mut p in all {
             let age = p.age();
@@ -258,7 +258,7 @@ fn sparse1() {
     );
 }
 
-fn print_messages(q: Query<All<&dyn Messages>>, mut output: ResMut<Output>) {
+fn print_messages(q: Query<&dyn Messages>, mut output: ResMut<Output>) {
     output.0.push("New frame:".to_owned());
     for (i, all) in q.iter().enumerate() {
         for msgs in all {

@@ -42,7 +42,7 @@ impl Messages for RecB {
     }
 }
 
-pub struct Benchmark<'w>(World, QueryState<All<&'w dyn Messages>>, Vec<usize>);
+pub struct Benchmark<'w>(World, QueryState<&'w dyn Messages>, Vec<usize>);
 
 impl<'w> Benchmark<'w> {
     // Each entity only has one component in practice.
@@ -59,7 +59,7 @@ impl<'w> Benchmark<'w> {
             world.spawn((Name::new("Hello"), RecB { messages: vec![] }));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query();
         Self(world, query, default())
     }
     fn multiple() -> Self {
@@ -76,7 +76,7 @@ impl<'w> Benchmark<'w> {
             ));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query();
         Self(world, query, default())
     }
     // Queries with only one, and queries with mutliple.
@@ -100,7 +100,7 @@ impl<'w> Benchmark<'w> {
             ));
         }
 
-        let query = world.query::<All<&dyn Messages>>();
+        let query = world.query();
         Self(world, query, default())
     }
 

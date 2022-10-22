@@ -17,7 +17,6 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//! use bevy_trait_query::{impl_trait_query, RegisterExt};
 //!
 //! // Some trait that we wish to use in queries.
 //! pub trait Tooltip: 'static {
@@ -25,19 +24,21 @@
 //! }
 //!
 //! // Add the necessary impls for querying.
-//! impl_trait_query!(Tooltip);
+//! bevy_trait_query::impl_trait_query!(Tooltip);
+//!
+//! // Define some custom components which will implement the trait.
 //!
 //! #[derive(Component)]
 //! struct Person(String);
+//!
+//! #[derive(Component)]
+//! struct Monster;
 //!
 //! impl Tooltip for Person {
 //!     fn tooltip(&self) -> &str {
 //!         &self.0
 //!     }
 //! }
-//!
-//! #[derive(Component)]
-//! struct Monster;
 //!
 //! impl Tooltip for Monster {
 //!     fn tooltip(&self) -> &str {
@@ -46,13 +47,17 @@
 //! }
 //!
 //! fn main() {
+//!     // We must import this trait in order to register our trait impls.
+//!     // If we don't register them, they will be invisible to the game engine.
+//!     use bevy_trait_query::RegisterExt;
+//!
 //!     App::new()
-//!         // We must register each trait impl, otherwise they are invisible to the game engine.
+//!         // Register our components.
 //!         .register_component_as::<dyn Tooltip, Person>()
 //!         .register_component_as::<dyn Tooltip, Monster>()
 //!         .add_startup_system(setup)
-//!         .add_system(show_tooltip)
-//!         .add_system(show_all_tooltips)
+//!         .add_system(show_tooltips)
+//!         .add_system(show_tooltips_one)
 //!         # .update();
 //! }
 //!
@@ -61,39 +66,27 @@
 //!     commands.spawn(Monster);
 //! }
 //!
-//! use bevy_trait_query::One;
-//! fn show_tooltip(
-//!     // Query for entities with exactly one component implementing the trait.
-//!     query: Query<One<&dyn Tooltip>>,
-//!     // ...
+//! fn show_tooltips(
+//!     // Query for entities with components implementing the trait.
+//!     query: Query<&dyn Tooltip>,
 //! ) {
-//!     for tt in &query {
-//!         let mouse_hovered = {
-//!             // ...
-//!             # true
-//!         };
-//!         if mouse_hovered {
-//!             println!("{}", tt.tooltip());
+//!     for entity_tooltips in &query {
+//!         // It's possible for an entity to have more than one component implementing the trait,
+//!         // so we must iterate over all possible components for each entity.
+//!         for tooltip in entity_tooltips {
+//!             println!("Hovering: {}", tooltip.tooltip());
 //!         }
 //!     }
 //! }
 //!
-//! use bevy_trait_query::All;
-//! fn show_all_tooltips(
-//!     // Query that returns all trait impls for each entity.
-//!     query: Query<All<&dyn Tooltip>>,
+//! use bevy_trait_query::One;
+//! fn show_tooltips_one(
+//!     // If you expect to only have one trait impl per entity, you should use the `One` filter.
+//!     // This is significantly more efficient than iterating over all trait impls.
+//!     query: Query<One<&dyn Tooltip>>,
 //! ) {
-//!     for tooltips in &query {
-//!         // Loop over all tooltip impls for this entity.
-//!         for tt in tooltips {
-//!             let mouse_hovered = {
-//!                 // ...
-//!                 # true
-//!             };
-//!             if mouse_hovered {
-//!                 println!("{}", tt.tooltip());
-//!             }
-//!         }
+//!     for tooltip in &query {
+//!         println!("Hovering: {}", tooltip.tooltip());
 //!     }
 //! }
 //! ```
@@ -270,7 +263,10 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 
 #[doc(hidden)]
 pub mod imports {
-    pub use bevy::ecs::component::Component;
+    pub use bevy::ecs::{
+        component::Component,
+        query::{QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+    };
 }
 
 #[macro_export]
@@ -282,6 +278,40 @@ macro_rules! impl_trait_query {
             type Covered = T;
             fn cast(ptr: *mut u8) -> *mut dyn $trait {
                 ptr as *mut T as *mut _
+            }
+        }
+
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
+            type Fetch = $crate::ReadAllTraitsFetch<'w, dyn $trait>;
+            type _State = $crate::AllQueryState<dyn $trait>;
+        }
+
+        unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
+
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
+            type ReadOnly = Self;
+            type State = $crate::AllQueryState<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: $crate::imports::QueryItem<'wlong, Self>,
+            ) -> $crate::imports::QueryItem<'wshort, Self> {
+                item
+            }
+        }
+
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
+            type Fetch = $crate::WriteAllTraitsFetch<'w, dyn $trait>;
+            type _State = $crate::AllQueryState<dyn $trait>;
+        }
+
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
+            type ReadOnly = &'w dyn $trait;
+            type State = $crate::AllQueryState<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: $crate::imports::QueryItem<'wlong, Self>,
+            ) -> $crate::imports::QueryItem<'wshort, Self> {
+                item
             }
         }
     };
@@ -836,6 +866,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 }
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
+///
+/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
 pub struct All<T: ?Sized>(T);
 
 /// Read-access to all components implementing a trait for a given entity.
