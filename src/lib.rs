@@ -353,6 +353,8 @@ macro_rules! impl_trait_query {
                     archetype_index,
                 )
             }
+
+            #[inline]
             unsafe fn table_fetch<'w>(
                 fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
                 table_row: usize,
