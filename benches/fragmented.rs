@@ -99,7 +99,7 @@ pub fn one(c: &mut Criterion) {
 }
 pub fn all(c: &mut Criterion) {
     let mut benchmark = Benchmark::new();
-    let mut query = benchmark.0.query::<All<&mut dyn Messages>>();
+    let mut query = benchmark.0.query::<&mut dyn Messages>();
     let mut output = Vec::new();
     c.bench_function("All<> - fragmented", |b| {
         b.iter(|| {
