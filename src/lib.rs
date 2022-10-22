@@ -61,39 +61,28 @@
 //!     commands.spawn().insert(Monster);
 //! }
 //!
-//! use bevy_trait_query::One;
-//! fn show_tooltip(
-//!     // Query for entities with exactly one component implementing the trait.
-//!     query: Query<One<&dyn Tooltip>>,
-//!     // ...
+//! fn show_tooltips(
+//!     // Query for entities with components implementing the trait.
+//!     query: Query<&dyn Tooltip>,
 //! ) {
-//!     for tt in &query {
-//!         let mouse_hovered = {
-//!             // ...
-//!             # true
-//!         };
-//!         if mouse_hovered {
-//!             println!("{}", tt.tooltip());
+//!     for entity_tooltips in &query {
+//!         // It's possible for an entity to have more than one component implementing the trait,
+//!         // so we must iterate over all possible components for each entity.
+//!         for tooltip: &dyn Tooltip in entity_tooltips {
+//!             println!("Hovering: {}", tooltip.tooltip());
 //!         }
 //!     }
 //! }
 //!
-//! use bevy_trait_query::All;
-//! fn show_all_tooltips(
-//!     // Query that returns all trait impls for each entity.
-//!     query: Query<All<&dyn Tooltip>>,
+//!
+//! use bevy_trait_query::One;
+//! fn show_tooltips_one(
+//!     // If you expect to only have one trait impl per entity, you should use the `One` filter.
+//!     // This is significantly more efficient than querying for all trait impls.
+//!     query: Query<One<&dyn Tooltip>>,
 //! ) {
-//!     for tooltips in &query {
-//!         // Loop over all tooltip impls for this entity.
-//!         for tt in tooltips {
-//!             let mouse_hovered = {
-//!                 // ...
-//!                 # true
-//!             };
-//!             if mouse_hovered {
-//!                 println!("{}", tt.tooltip());
-//!             }
-//!         }
+//!     for tooltip: &dyn Tooltip in &query {
+//!         println!("Hovering: {}", tooltip.tooltip());
 //!     }
 //! }
 //! ```
