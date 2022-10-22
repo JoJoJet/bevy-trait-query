@@ -73,7 +73,7 @@
 //!     for entity_tooltips in &query {
 //!         // It's possible for an entity to have more than one component implementing the trait,
 //!         // so we must iterate over all possible components for each entity.
-//!         for tooltip: &dyn Tooltip in entity_tooltips {
+//!         for tooltip in entity_tooltips {
 //!             println!("Hovering: {}", tooltip.tooltip());
 //!         }
 //!     }
@@ -85,7 +85,7 @@
 //!     // This is significantly more efficient than iterating over all trait impls.
 //!     query: Query<One<&dyn Tooltip>>,
 //! ) {
-//!     for tooltip: &dyn Tooltip in &query {
+//!     for tooltip in &query {
 //!         println!("Hovering: {}", tooltip.tooltip());
 //!     }
 //! }
