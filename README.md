@@ -62,8 +62,8 @@ fn main() {
         .register_component_as::<dyn Tooltip, Person>()
         .register_component_as::<dyn Tooltip, Monster>()
         .add_startup_system(setup)
-        .add_system(show_tooltip)
-        .add_system(show_all_tooltips)
+        .add_system(show_tooltips)
+        .add_system(show_tooltips_one)
 }
 
 fn setup(mut commands: Commands) {
