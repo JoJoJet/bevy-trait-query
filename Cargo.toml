@@ -12,7 +12,7 @@ categories = ["game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "4407cdb423ddb82a1992f2b84015fd3fdab65abe" }
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "543465b721048355e34eb6078923645747c1d44b" }
 
 [dev-dependencies]
 criterion = "0.4"
