@@ -17,7 +17,6 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//! use bevy_trait_query::{impl_trait_query, RegisterExt};
 //!
 //! // Some trait that we wish to use in queries.
 //! pub trait Tooltip: 'static {
@@ -25,19 +24,23 @@
 //! }
 //!
 //! // Add the necessary impls for querying.
-//! impl_trait_query!(Tooltip);
+//! bevy_trait_query::impl_trait_query!(Tooltip);
+//!
+//! // Define some custom components.
 //!
 //! #[derive(Component)]
 //! struct Person(String);
+//!
+//! #[derive(Component)]
+//! struct Monster;
+//!
+//! // Implement the trait for these components.
 //!
 //! impl Tooltip for Person {
 //!     fn tooltip(&self) -> &str {
 //!         &self.0
 //!     }
 //! }
-//!
-//! #[derive(Component)]
-//! struct Monster;
 //!
 //! impl Tooltip for Monster {
 //!     fn tooltip(&self) -> &str {
@@ -46,8 +49,12 @@
 //! }
 //!
 //! fn main() {
+//!     // We must import this trait in order to register our trait impls.
+//!     // If we don't register them, they will be invisible to the game engine.
+//!     use bevy_trait_query::RegisterExt;
+//!
 //!     App::new()
-//!         // We must register each trait impl, otherwise they are invisible to the game engine.
+//!         // Register our components.
 //!         .register_component_as::<dyn Tooltip, Person>()
 //!         .register_component_as::<dyn Tooltip, Monster>()
 //!         .add_startup_system(setup)
