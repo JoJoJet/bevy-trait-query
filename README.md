@@ -81,7 +81,7 @@ fn show_tooltips(
 use bevy_trait_query::One;
 fn show_tooltips_one(
     // If you expect to only have one trait impl per entity, you should use the `One` filter.
-    // This is significantly more efficient than querying for all trait impls.
+    // This is significantly more efficient than iterating over all trait impls.
     query: Query<One<&dyn Tooltip>>,
 ) {
     for tooltip: &dyn Tooltip in &query {
