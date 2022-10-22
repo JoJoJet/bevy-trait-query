@@ -269,7 +269,10 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 
 #[doc(hidden)]
 pub mod imports {
-    pub use bevy::ecs::component::Component;
+    pub use bevy::ecs::{
+        component::Component,
+        query::{QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+    };
 }
 
 #[macro_export]
@@ -281,6 +284,40 @@ macro_rules! impl_trait_query {
             type Covered = T;
             fn cast(ptr: *mut u8) -> *mut dyn $trait {
                 ptr as *mut T as *mut _
+            }
+        }
+
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
+            type Fetch = $crate::ReadAllTraitsFetch<'w, dyn $trait>;
+            type _State = $crate::AllQueryState<dyn $trait>;
+        }
+
+        unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
+
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w dyn $trait {
+            type ReadOnly = Self;
+            type State = $crate::AllQueryState<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: $crate::imports::QueryItem<'wlong, Self>,
+            ) -> $crate::imports::QueryItem<'wshort, Self> {
+                item
+            }
+        }
+
+        impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
+            type Fetch = $crate::WriteAllTraitsFetch<'w, dyn $trait>;
+            type _State = $crate::AllQueryState<dyn $trait>;
+        }
+
+        unsafe impl<'w> $crate::imports::WorldQuery for &'w mut dyn $trait {
+            type ReadOnly = &'w dyn $trait;
+            type State = $crate::AllQueryState<dyn $trait>;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: $crate::imports::QueryItem<'wlong, Self>,
+            ) -> $crate::imports::QueryItem<'wshort, Self> {
+                item
             }
         }
     };
@@ -807,6 +844,8 @@ unsafe impl<'w, Trait: ?Sized + TraitQuery> Fetch<'w> for WriteTraitFetch<'w, Tr
 }
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
+///
+/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
 pub struct All<T: ?Sized>(T);
 
 /// Read-access to all components implementing a trait for a given entity.
