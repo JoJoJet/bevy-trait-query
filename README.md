@@ -30,15 +30,13 @@ pub trait Tooltip: 'static {
 // Add the necessary impls for querying.
 bevy_trait_query::impl_trait_query!(Tooltip);
 
-// Define some custom components.
+// Define some custom components which will implement the trait.
 
 #[derive(Component)]
 struct Person(String);
 
 #[derive(Component)]
 struct Monster;
-
-// Implement the trait for these components.
 
 impl Tooltip for Person {
     fn tooltip(&self) -> &str {
