@@ -280,3 +280,41 @@ fn spawn_sparse(mut commands: Commands) {
         commands.spawn().insert(RecB(vec![format!("Sparse #{i}")]));
     }
 }
+
+// Make sure it works correctly when components are registered multiple times.
+#[test]
+fn multi_register() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    // Register each trait impl multiple times. Nothing should happen for the extra registrations.
+    world
+        .register_component_as::<dyn Messages, RecA>()
+        .register_component_as::<dyn Messages, RecA>()
+        .register_component_as::<dyn Messages, RecA>()
+        .register_component_as::<dyn Messages, RecB>()
+        .register_component_as::<dyn Messages, RecB>();
+
+    world.spawn().insert(RecA(vec![]));
+    world.spawn().insert_bundle((RecA(vec![]), RecB(vec![])));
+    world.spawn().insert(RecB(vec![]));
+
+    let mut stage = SystemStage::parallel();
+    stage.add_system(count_impls);
+
+    fn count_impls(q: Query<&dyn Messages>, mut output: ResMut<Output>) {
+        for traits in &q {
+            // Make sure each impl gets yielded the correct number of times.
+            // We don't want any of them to get double-counted.
+            output
+                .0
+                .push(format!("{} Traits", traits.into_iter().count()));
+        }
+    }
+
+    stage.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &["1 Traits", "2 Traits", "1 Traits"]
+    );
+}
