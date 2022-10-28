@@ -1,6 +1,6 @@
 [package]
 name = "bevy-trait-query"
-version = "0.0.3"
+version = "0.1.0-dev"
 edition = "2021"
 
 description = "Implementation of trait queries for the bevy game engine"
