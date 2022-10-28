@@ -266,10 +266,11 @@ pub mod imports {
     pub use bevy::ecs::{
         archetype::{Archetype, ArchetypeComponentId},
         component::{Component, ComponentId},
+        entity::Entity,
         query::{
             Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats,
         },
-        storage::{Table, Tables},
+        storage::Table,
     };
 }
 
@@ -312,6 +313,13 @@ macro_rules! impl_trait_query {
             }
 
             #[inline]
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
+                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::clone_fetch(fetch)
+            }
+
+            #[inline]
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: $crate::imports::QueryItem<'wlong, Self>,
             ) -> $crate::imports::QueryItem<'wshort, Self> {
@@ -327,7 +335,7 @@ macro_rules! impl_trait_query {
                 fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
                 state: &Self::State,
                 archetype: &'w $crate::imports::Archetype,
-                tables: &'w $crate::imports::Tables,
+                tables: &'w $crate::imports::Table,
             ) {
                 <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::set_archetype(
                     fetch, state, archetype, tables,
@@ -344,22 +352,16 @@ macro_rules! impl_trait_query {
             }
 
             #[inline]
-            unsafe fn archetype_fetch<'w>(
+            unsafe fn fetch<'w>(
                 fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                archetype_index: usize,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::archetype_fetch(
-                    fetch,
-                    archetype_index,
-                )
-            }
-
-            #[inline]
-            unsafe fn table_fetch<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
+                entity: $crate::imports::Entity,
                 table_row: usize,
             ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::table_fetch(fetch, table_row)
+                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::fetch(
+                    fetch,
+                    entity,
+                    table_row,
+                )
             }
 
             #[inline]
@@ -420,6 +422,13 @@ macro_rules! impl_trait_query {
             }
 
             #[inline]
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
+                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::clone_fetch(fetch)
+            }
+
+            #[inline]
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: $crate::imports::QueryItem<'wlong, Self>,
             ) -> $crate::imports::QueryItem<'wshort, Self> {
@@ -435,10 +444,10 @@ macro_rules! impl_trait_query {
                 fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
                 state: &Self::State,
                 archetype: &'w $crate::imports::Archetype,
-                tables: &'w $crate::imports::Tables,
+                table: &'w $crate::imports::Table,
             ) {
                 <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::set_archetype(
-                    fetch, state, archetype, tables,
+                    fetch, state, archetype, table,
                 );
             }
 
@@ -452,22 +461,16 @@ macro_rules! impl_trait_query {
             }
 
             #[inline]
-            unsafe fn archetype_fetch<'w>(
+            unsafe fn fetch<'w>(
                 fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                archetype_index: usize,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::archetype_fetch(
-                    fetch,
-                    archetype_index,
-                )
-            }
-
-            #[inline]
-            unsafe fn table_fetch<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
+                entity: $crate::imports::Entity,
                 table_row: usize,
             ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::table_fetch(fetch, table_row)
+                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::fetch(
+                    fetch,
+                    entity,
+                    table_row,
+                )
             }
 
             #[inline]
@@ -531,9 +534,11 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
             meta: registry.meta.clone().into_boxed_slice(),
         }
     }
+    #[inline]
     fn matches_component_set_any(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.components.iter().copied().any(set_contains_id)
     }
+    #[inline]
     fn matches_component_set_one(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         let match_count = self
             .components
@@ -558,9 +563,11 @@ impl<T: ?Sized> Clone for DynCtor<T> {
 }
 
 impl<Trait: ?Sized> DynCtor<Trait> {
+    #[inline]
     unsafe fn cast(self, ptr: Ptr) -> &Trait {
         &*(self.cast)(ptr.as_ptr())
     }
+    #[inline]
     unsafe fn cast_mut(self, ptr: PtrMut) -> &mut Trait {
         &mut *(self.cast)(ptr.as_ptr())
     }
@@ -573,6 +580,7 @@ struct ZipExact<A, B> {
 
 impl<A: Iterator, B: Iterator> Iterator for ZipExact<A, B> {
     type Item = (A::Item, B::Item);
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let a = self.a.next()?;
         let b = self
@@ -586,6 +594,7 @@ impl<A: Iterator, B: Iterator> Iterator for ZipExact<A, B> {
 }
 
 /// SAFETY: `b` must yield at least as many items as `a`.
+#[inline]
 unsafe fn zip_exact<A: IntoIterator, B: IntoIterator>(
     a: A,
     b: B,
@@ -621,7 +630,6 @@ enum ReadStorage<'w, Trait: ?Sized> {
         /// The fetch impl registers read access for all of these components,
         /// so there will be no runtime conflicts.
         column: Ptr<'w>,
-        entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
@@ -629,7 +637,6 @@ enum ReadStorage<'w, Trait: ?Sized> {
         /// The fetch impl registers read access for all components implementing the trait,
         /// so there will not be any runtime conflicts.
         components: &'w ComponentSparseSet,
-        entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
     },
 }
@@ -647,10 +654,12 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
+    #[inline]
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
@@ -663,23 +672,38 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         }
     }
 
+    #[inline]
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ReadTraitFetch {
+            storage: match fetch.storage {
+                ReadStorage::Uninit => ReadStorage::Uninit,
+                ReadStorage::Table { column, meta } => ReadStorage::Table { column, meta },
+                ReadStorage::SparseSet { components, meta } => {
+                    ReadStorage::SparseSet { components, meta }
+                }
+            },
+            sparse_sets: fetch.sparse_sets,
+        }
+    }
+
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
+    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadTraitFetch<'w, Trait>,
         state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        tables: &'w bevy::ecs::storage::Tables,
+        _archetype: &'w bevy::ecs::archetype::Archetype,
+        table: &'w bevy::ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the archetype.
         // We check the table components first since it is faster to retrieve data of this type.
-        let table = &tables[archetype.table_id()];
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    entity_rows: archetype.entity_table_rows().into(),
                     meta,
                 };
                 return;
@@ -688,7 +712,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = fetch.sparse_sets.get(component) {
                 fetch.storage = ReadStorage::SparseSet {
-                    entities: archetype.entities().into(),
                     components: sparse_set,
                     meta,
                 };
@@ -699,37 +722,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         debug_unreachable()
     }
 
-    unsafe fn archetype_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        match fetch.storage {
-            // SAFETY: This function must have been called after `set_archetype`,
-            // so we know that `self.storage` has been initialized.
-            ReadStorage::Uninit => debug_unreachable(),
-            ReadStorage::Table {
-                column,
-                entity_rows,
-                meta,
-            } => {
-                let table_row = *entity_rows.get(archetype_index);
-                let ptr = column.byte_add(table_row * meta.size_bytes);
-                meta.dyn_ctor.cast(ptr)
-            }
-            ReadStorage::SparseSet {
-                entities,
-                components,
-                meta,
-            } => {
-                let entity = *entities.get(archetype_index);
-                let ptr = components
-                    .get(entity)
-                    .unwrap_or_else(|| debug_unreachable());
-                meta.dyn_ctor.cast(ptr)
-            }
-        }
-    }
-
+    #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut ReadTraitFetch<'w, Trait>,
         state: &Self::State,
@@ -740,7 +733,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    entity_rows: (&[][..]).into(),
                     meta,
                 }
             }
@@ -749,25 +741,30 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         debug_unreachable()
     }
 
-    unsafe fn table_fetch<'w>(
+    #[inline]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
         table_row: usize,
-    ) -> &'w Trait {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         match fetch.storage {
-            // SAFETY: This function must have been called after `set_table`,
-            // so we know that `self.storage` has been initialized to the variant `ReadStorage::Table`.
-            ReadStorage::Uninit | ReadStorage::SparseSet { .. } => debug_unreachable(),
-            ReadStorage::Table {
-                column,
-                entity_rows: _,
-                meta,
-            } => {
+            // SAFETY: This function must have been called after `set_archetype`,
+            // so we know that `self.storage` has been initialized.
+            ReadStorage::Uninit => debug_unreachable(),
+            ReadStorage::Table { column, meta } => {
                 let ptr = column.byte_add(table_row * meta.size_bytes);
+                meta.dyn_ctor.cast(ptr)
+            }
+            ReadStorage::SparseSet { components, meta } => {
+                let ptr = components
+                    .get(entity)
+                    .unwrap_or_else(|| debug_unreachable());
                 meta.dyn_ctor.cast(ptr)
             }
         }
     }
 
+    #[inline]
     fn update_component_access(
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
@@ -782,6 +779,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
         archetype: &bevy::ecs::archetype::Archetype,
@@ -794,9 +792,11 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         }
     }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+    #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -829,14 +829,12 @@ enum WriteStorage<'w, Trait: ?Sized> {
         /// so there will be no runtime conflicts.
         column: Ptr<'w>,
         table_ticks: ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
-        entity_rows: ThinSlicePtr<'w, usize>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
         /// This gives us shared mutable access to one of the components implementing the trait.
         /// The fetch impl registers write access for all components implementing the trait, so there will be no runtime conflicts.
         components: &'w ComponentSparseSet,
-        entities: ThinSlicePtr<'w, Entity>,
         meta: TraitImplMeta<Trait>,
     },
 }
@@ -852,6 +850,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type ReadOnly = One<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
@@ -866,6 +865,33 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
+    #[inline]
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        WriteTraitFetch {
+            storage: match fetch.storage {
+                WriteStorage::Uninit => WriteStorage::Uninit,
+                WriteStorage::Table {
+                    column,
+                    meta,
+                    table_ticks,
+                } => WriteStorage::Table {
+                    column,
+                    meta,
+                    table_ticks,
+                },
+                WriteStorage::SparseSet { components, meta } => {
+                    WriteStorage::SparseSet { components, meta }
+                }
+            },
+            sparse_sets: fetch.sparse_sets,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
+        }
+    }
+
+    #[inline]
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
@@ -873,20 +899,19 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
+    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteTraitFetch<'w, Trait>,
         state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        tables: &'w bevy::ecs::storage::Tables,
+        _archetype: &'w bevy::ecs::archetype::Archetype,
+        table: &'w bevy::ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the archetype.
-        let table = &tables[archetype.table_id()];
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
                     table_ticks: column.get_ticks_slice().into(),
-                    entity_rows: archetype.entity_table_rows().into(),
                     meta,
                 };
                 return;
@@ -895,7 +920,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = fetch.sparse_sets.get(component) {
                 fetch.storage = WriteStorage::SparseSet {
-                    entities: archetype.entities().into(),
                     components: sparse_set,
                     meta,
                 };
@@ -906,9 +930,32 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         debug_unreachable()
     }
 
-    unsafe fn archetype_fetch<'w>(
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut WriteTraitFetch<'w, Trait>,
+        state: &Self::State,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        // Search for a registered trait impl that is present in the table.
+        for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
+            if let Some(column) = table.get_column(component) {
+                fetch.storage = WriteStorage::Table {
+                    column: column.get_data_ptr(),
+                    table_ticks: column.get_ticks_slice().into(),
+                    meta,
+                };
+                return;
+            }
+        }
+        // At least one of the components must be present in the table.
+        debug_unreachable()
+    }
+
+    #[inline]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
+        entity: Entity,
+        table_row: usize,
     ) -> Mut<'w, Trait> {
         let dyn_ctor;
         let (ptr, component_ticks) = match fetch.storage {
@@ -918,11 +965,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             WriteStorage::Table {
                 column,
                 table_ticks,
-                entity_rows,
                 meta,
             } => {
                 dyn_ctor = meta.dyn_ctor;
-                let table_row = *entity_rows.get(archetype_index);
                 let ptr = column.byte_add(table_row * meta.size_bytes);
                 (
                     // SAFETY: `column` allows for shared mutable access.
@@ -934,13 +979,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                     table_ticks.get(table_row).deref_mut(),
                 )
             }
-            WriteStorage::SparseSet {
-                entities,
-                components,
-                meta,
-            } => {
+            WriteStorage::SparseSet { components, meta } => {
                 dyn_ctor = meta.dyn_ctor;
-                let entity = *entities.get(archetype_index);
                 let (ptr, ticks) = components
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
@@ -966,57 +1006,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
-    unsafe fn set_table<'w>(
-        fetch: &mut WriteTraitFetch<'w, Trait>,
-        state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
-    ) {
-        // Search for a registered trait impl that is present in the table.
-        for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
-                fetch.storage = WriteStorage::Table {
-                    column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
-                    entity_rows: [][..].into(),
-                    meta,
-                };
-                return;
-            }
-        }
-        // At least one of the components must be present in the table.
-        debug_unreachable()
-    }
-
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        table_row: usize,
-    ) -> Mut<'w, Trait> {
-        let (ptr, component_ticks, dyn_ctor) = match fetch.storage {
-            // SAFETY: This function must have been called after `set_table`,
-            // so we know that `self.storage` has been initialized to the variant `WriteStorage::Table`.
-            WriteStorage::Uninit | WriteStorage::SparseSet { .. } => debug_unreachable(),
-            WriteStorage::Table {
-                column,
-                table_ticks,
-                entity_rows: _,
-                meta,
-            } => (
-                column.byte_add(table_row * meta.size_bytes),
-                table_ticks.get(table_row).deref_mut(),
-                meta.dyn_ctor,
-            ),
-        };
-        Mut {
-            // Is `assert_unique` correct here??
-            value: dyn_ctor.cast_mut(ptr.assert_unique()),
-            ticks: Ticks {
-                component_ticks,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
-            },
-        }
-    }
-
+    #[inline]
     fn update_component_access(
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
@@ -1031,6 +1021,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
         archetype: &bevy::ecs::archetype::Archetype,
@@ -1043,9 +1034,11 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+    #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1260,7 +1253,6 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
 #[doc(hidden)]
 pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
     sparse_sets: &'w SparseSets,
 }
@@ -1268,7 +1260,6 @@ pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
 #[doc(hidden)]
 pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     registry: &'w TraitImplRegistry<Trait>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     table: Option<&'w Table>,
     sparse_sets: &'w SparseSets,
 
@@ -1290,6 +1281,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
@@ -1297,13 +1289,24 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         _change_tick: u32,
     ) -> ReadAllTraitsFetch<'w, Trait> {
         ReadAllTraitsFetch {
-            entity_table_rows: None,
             registry: world.resource(),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
         }
     }
 
+    #[inline]
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ReadAllTraitsFetch {
+            registry: fetch.registry,
+            table: fetch.table,
+            sparse_sets: fetch.sparse_sets,
+        }
+    }
+
+    #[inline]
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
@@ -1311,32 +1314,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
+    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadAllTraitsFetch<'w, Trait>,
         _state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        tables: &'w bevy::ecs::storage::Tables,
+        _archetype: &'w bevy::ecs::archetype::Archetype,
+        table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-        fetch.table = Some(&tables[archetype.table_id()]);
-    }
-
-    unsafe fn archetype_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        let entity_table_rows = fetch
-            .entity_table_rows
-            .unwrap_or_else(|| debug_unreachable());
-        let table_row = *entity_table_rows.get(archetype_index);
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        ReadTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-        }
+        fetch.table = Some(table);
     }
 
     unsafe fn set_table<'w>(
@@ -1347,10 +1332,12 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         fetch.table = Some(table);
     }
 
-    unsafe fn table_fetch<'w>(
+    #[inline]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _entity: Entity,
         table_row: usize,
-    ) -> ReadTraits<'w, Trait> {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
         ReadTraits {
@@ -1361,6 +1348,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         }
     }
 
+    #[inline]
     fn update_component_access(
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
@@ -1375,6 +1363,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
         archetype: &bevy::ecs::archetype::Archetype,
@@ -1387,9 +1376,11 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         }
     }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+    #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1410,6 +1401,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
@@ -1417,7 +1409,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         change_tick: u32,
     ) -> WriteAllTraitsFetch<'w, Trait> {
         WriteAllTraitsFetch {
-            entity_table_rows: None,
             registry: world.resource(),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
@@ -1426,6 +1417,20 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         }
     }
 
+    #[inline]
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        WriteAllTraitsFetch {
+            registry: fetch.registry,
+            table: fetch.table,
+            sparse_sets: fetch.sparse_sets,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
+        }
+    }
+
+    #[inline]
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
@@ -1433,46 +1438,20 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
+    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteAllTraitsFetch<'w, Trait>,
         _state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        tables: &'w bevy::ecs::storage::Tables,
-    ) {
-        fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-        fetch.table = Some(&tables[archetype.table_id()]);
-    }
-
-    unsafe fn archetype_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> WriteTraits<'w, Trait> {
-        let entity_table_rows = fetch
-            .entity_table_rows
-            .unwrap_or_else(|| debug_unreachable());
-        let table_row = *entity_table_rows.get(archetype_index);
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        WriteTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
-        }
-    }
-
-    unsafe fn set_table<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
+        _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
     ) {
         fetch.table = Some(table);
     }
 
-    unsafe fn table_fetch<'w>(
+    #[inline]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _entity: Entity,
         table_row: usize,
     ) -> WriteTraits<'w, Trait> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
@@ -1487,6 +1466,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         }
     }
 
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        _state: &Self::State,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        fetch.table = Some(table);
+    }
+
+    #[inline]
     fn update_component_access(
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
@@ -1501,6 +1490,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
         archetype: &bevy::ecs::archetype::Archetype,
@@ -1513,9 +1503,11 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         }
     }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+    #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1527,6 +1519,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
     type Item = &'w Trait;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
             components: self.registry.table_components.iter(),
@@ -1547,6 +1540,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
     type Item = &'w Trait;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
             components: self.registry.table_components.iter(),
@@ -1567,6 +1561,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
     type Item = Mut<'w, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
             components: self.registry.table_components.iter(),
@@ -1593,6 +1588,7 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 {
     type Item = &'local Trait;
     type IntoIter = CombinedReadTraitsIter<'local, Trait>;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let table = ReadTableTraitsIter {
             components: self.registry.table_components.iter(),
@@ -1615,6 +1611,7 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 {
     type Item = Mut<'local, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'local, Trait>;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let table = WriteTableTraitsIter {
             components: self.registry.table_components.iter(),
