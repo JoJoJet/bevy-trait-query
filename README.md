@@ -5,8 +5,12 @@
 An implementation of trait queries for the bevy game engine.
 
 Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
-The current published version depends on bevy 0.8, although there is a branch on github
-that supports the upcoming version.
+
+| Bevy Version | Crate Version |
+|--------------|---------------|
+| 0.9          | 0.1           |
+| 0.8          | 0.0.3         |
+| Preview      | Main branch   |
 
 ## Note on reliability
 
@@ -65,8 +69,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn().insert(Person("Fourier".to_owned()));
-    commands.spawn().insert(Monster);
+    commands.spawn(Person("Fourier".to_owned()));
+    commands.spawn(Monster);
 }
 
 fn show_tooltips(
