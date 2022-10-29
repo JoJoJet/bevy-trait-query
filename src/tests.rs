@@ -286,9 +286,9 @@ fn multi_register() {
         .register_component_as::<dyn Messages, RecB>()
         .register_component_as::<dyn Messages, RecB>();
 
-    world.spawn().insert(RecA(vec![]));
-    world.spawn().insert_bundle((RecA(vec![]), RecB(vec![])));
-    world.spawn().insert(RecB(vec![]));
+    world.spawn(RecA(vec![]));
+    world.spawn((RecA(vec![]), RecB(vec![])));
+    world.spawn(RecB(vec![]));
 
     let mut stage = SystemStage::parallel();
     stage.add_system(count_impls);
