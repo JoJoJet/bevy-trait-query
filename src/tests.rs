@@ -1,10 +1,13 @@
 use super::*;
 use std::fmt::Display;
 
+pub use crate as bevy_trait_query;
+
 #[derive(Resource, Default)]
 pub struct Output(Vec<String>);
 
-pub trait Person: 'static {
+#[queryable]
+pub trait Person {
     fn name(&self) -> &str;
     fn age(&self) -> u32;
     fn set_age(&mut self, age: u32);
@@ -189,7 +192,8 @@ fn age_up_not(mut q: Query<&mut dyn Person, Without<Fem>>) {
     }
 }
 
-pub trait Messages: 'static {
+#[queryable]
+pub trait Messages {
     fn send(&mut self, _: &dyn Display);
     fn read(&self) -> &[String];
 }

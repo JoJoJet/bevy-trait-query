@@ -6,7 +6,8 @@ use criterion::*;
 use std::fmt::Display;
 
 /// Define a trait for our components to implement.
-pub trait Messages: 'static {
+#[queryable]
+pub trait Messages {
     fn messages(&self) -> &[String];
     fn send_message(&mut self, _: &dyn Display);
 }
