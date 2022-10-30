@@ -1,32 +1,50 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_quote, ItemTrait, Lifetime};
+use syn::{parse_quote, ItemTrait, Lifetime, Result};
 
-/// Note that this will add the trait bound `'static` to the trait and all of its type parameters.
+/// # Note
+///
+/// This will add the trait bound `'static` to the trait and all of its type parameters.
+///
+/// You may opt out of this by using the form `#[queryable(no_bounds)]`,
+/// but you will have to add the bounds yourself to make it compile.
 #[proc_macro_attribute]
-pub fn queryable(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    impl_trait_query(item.into()).into()
+pub fn queryable(attr: TokenStream, item: TokenStream) -> TokenStream {
+    impl_trait_query(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
-fn impl_trait_query(item: TokenStream) -> TokenStream2 {
-    let mut trait_definition = syn::parse::<ItemTrait>(item).unwrap();
+fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2> {
+    syn::custom_keyword!(no_bounds);
+    let no_bounds: Option<no_bounds> = syn::parse(arg).map_err(|e| {
+        syn::Error::new(
+            e.span(),
+            "Valid forms are: `#[queryable]` and `#[queryable(no_bounds)]`",
+        )
+    })?;
+
+    let mut trait_definition = syn::parse::<ItemTrait>(item)?;
     let trait_name = trait_definition.ident.clone();
 
-    trait_definition
-        .supertraits
-        .push(syn::TypeParamBound::Lifetime(Lifetime::new(
-            "'static",
-            Span::call_site(),
-        )));
+    // Add `'static` bounds, unless the user asked us not to.
+    if !no_bounds.is_some() {
+        trait_definition
+            .supertraits
+            .push(syn::TypeParamBound::Lifetime(Lifetime::new(
+                "'static",
+                Span::call_site(),
+            )));
 
-    // We don't want to add any trait bounds to the definition, just some impls.
-    for param in &mut trait_definition.generics.params {
-        // Make sure the parameters to the trait are `'static`.
-        if let syn::GenericParam::Type(param) = param {
-            param.bounds.push(parse_quote!('static));
+        for param in &mut trait_definition.generics.params {
+            // Make sure the parameters to the trait are `'static`.
+            if let syn::GenericParam::Type(param) = param {
+                param.bounds.push(parse_quote!('static));
+            }
         }
     }
+
     let (impl_generics, trait_generics, where_clause) = trait_definition.generics.split_for_impl();
 
     let trait_object = quote! { dyn #trait_name #trait_generics };
@@ -293,13 +311,13 @@ fn impl_trait_query(item: TokenStream) -> TokenStream2 {
         }
     };
 
-    quote! {
+    Ok(quote! {
         #trait_definition
 
         #marker_impl_code
 
         #trait_object_query_code
-    }
+    })
 }
 
 #[cfg(test)]
