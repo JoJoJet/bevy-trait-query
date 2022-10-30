@@ -1,8 +1,6 @@
 use super::*;
 use std::fmt::{Debug, Display};
 
-pub use crate as bevy_trait_query;
-
 #[derive(Resource, Default)]
 pub struct Output(Vec<String>);
 

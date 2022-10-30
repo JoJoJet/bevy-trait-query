@@ -49,7 +49,15 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     let trait_object = quote! { dyn #trait_name #trait_generics };
 
-    let my_crate = quote! { bevy_trait_query };
+    let my_crate = proc_macro_crate::crate_name("bevy-trait-query").unwrap();
+    let my_crate = match my_crate {
+        proc_macro_crate::FoundCrate::Itself => quote! { crate },
+        proc_macro_crate::FoundCrate::Name(x) => {
+            let ident = quote::format_ident!("{x}");
+            quote! { #ident }
+        }
+    };
+
     let imports = quote! { #my_crate::imports };
 
     let trait_query = quote! { #my_crate::TraitQuery };
