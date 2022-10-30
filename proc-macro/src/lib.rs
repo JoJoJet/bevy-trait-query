@@ -3,6 +3,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{parse_quote, ItemTrait, Lifetime};
 
+/// Note that this will add the trait bound `'static` to the trait and all of its type parameters.
 #[proc_macro_attribute]
 pub fn queryable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     impl_trait_query(item.into()).into()
@@ -12,14 +13,21 @@ fn impl_trait_query(item: TokenStream) -> TokenStream2 {
     let mut trait_definition = syn::parse::<ItemTrait>(item).unwrap();
     let trait_name = trait_definition.ident.clone();
 
-    let (impl_generics, trait_generics, where_clause) = trait_definition.generics.split_for_impl();
-
     trait_definition
         .supertraits
         .push(syn::TypeParamBound::Lifetime(Lifetime::new(
             "'static",
             Span::call_site(),
         )));
+
+    // We don't want to add any trait bounds to the definition, just some impls.
+    for param in &mut trait_definition.generics.params {
+        // Make sure the parameters to the trait are `'static`.
+        if let syn::GenericParam::Type(param) = param {
+            param.bounds.push(parse_quote!('static));
+        }
+    }
+    let (impl_generics, trait_generics, where_clause) = trait_definition.generics.split_for_impl();
 
     let trait_object = quote! { dyn #trait_name #trait_generics };
 
@@ -31,7 +39,7 @@ fn impl_trait_query(item: TokenStream) -> TokenStream2 {
     let mut marker_generics = trait_definition.generics.clone();
     marker_generics
         .params
-        .push(parse_quote!(__T: #trait_name + #imports::Component));
+        .push(parse_quote!(__T: #trait_name #trait_generics + #imports::Component));
     let (marker_impl_generics, ..) = marker_generics.split_for_impl();
 
     let marker_impl_code = quote! {

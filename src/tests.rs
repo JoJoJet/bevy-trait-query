@@ -1,5 +1,5 @@
 use super::*;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 pub use crate as bevy_trait_query;
 
@@ -309,4 +309,16 @@ fn multi_register() {
         world.resource::<Output>().0,
         &["1 Traits", "2 Traits", "1 Traits"]
     );
+}
+
+#[queryable]
+pub trait GenericTrait<T: Debug> {
+    fn get(&self) -> T;
+    fn get_double(&self) -> T
+    where
+        T: std::ops::Add<Output = T> + Clone,
+    {
+        let val = self.get();
+        val.clone() + val
+    }
 }
