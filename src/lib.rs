@@ -23,7 +23,9 @@
 //! use bevy::prelude::*;
 //!
 //! // Some trait that we wish to use in queries.
-//! pub trait Tooltip: 'static {
+//!
+//! #[bevy_trait_query::queryable]
+//! pub trait Tooltip {
 //!     fn tooltip(&self) -> &str;
 //! }
 //!
