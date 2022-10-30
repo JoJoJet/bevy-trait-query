@@ -22,6 +22,10 @@
 //! ```
 //! use bevy::prelude::*;
 //!
+//! # // Required to make the macro work, because cargo thinks
+//! # // we are in `bevy_trait_query` when compiling this example.
+//! # use bevy_trait_query::*;
+//!
 //! // Some trait that we wish to use in queries.
 //!
 //! #[bevy_trait_query::queryable]
