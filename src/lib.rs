@@ -29,9 +29,6 @@
 //!     fn tooltip(&self) -> &str;
 //! }
 //!
-//! // Add the necessary impls for querying.
-//! bevy_trait_query::impl_trait_query!(Tooltip);
-//!
 //! // Define some custom components which will implement the trait.
 //!
 //! #[derive(Component)]
@@ -286,11 +283,6 @@ pub mod imports {
         },
         storage::Table,
     };
-}
-
-#[macro_export]
-macro_rules! impl_trait_query {
-    ($trait:ident) => {};
 }
 
 #[doc(hidden)]

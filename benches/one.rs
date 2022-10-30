@@ -12,9 +12,6 @@ pub trait Messages {
     fn send_message(&mut self, _: &dyn Display);
 }
 
-// Add `WorldQuery` impls for `dyn Message`
-impl_trait_query!(Messages);
-
 #[derive(Component)]
 pub struct RecA {
     messages: Vec<String>,

@@ -13,8 +13,6 @@ pub trait Person {
     fn set_age(&mut self, age: u32);
 }
 
-impl_trait_query!(Person);
-
 #[derive(Component)]
 struct Fem;
 
@@ -197,8 +195,6 @@ pub trait Messages {
     fn send(&mut self, _: &dyn Display);
     fn read(&self) -> &[String];
 }
-
-impl_trait_query!(Messages);
 
 #[derive(Component)]
 pub struct RecA(Vec<String>);

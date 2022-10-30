@@ -27,12 +27,11 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 use bevy::prelude::*;
 
 // Some trait that we wish to use in queries.
-pub trait Tooltip: 'static {
+
+#[bevy_trait_query::queryable]
+pub trait Tooltip {
     fn tooltip(&self) -> &str;
 }
-
-// Add the necessary impls for querying.
-bevy_trait_query::impl_trait_query!(Tooltip);
 
 // Define some custom components which will implement the trait.
 
