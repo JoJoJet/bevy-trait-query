@@ -146,6 +146,8 @@ pub mod change_detection;
 /// Marker for traits that can be used in queries.
 pub trait TraitQuery: 'static {}
 
+pub use bevy_trait_query_impl::queryable;
+
 #[doc(hidden)]
 pub trait TraitQueryMarker<Trait: ?Sized + TraitQuery> {
     type Covered: Component;
@@ -287,15 +289,6 @@ pub mod imports {
 #[macro_export]
 macro_rules! impl_trait_query {
     ($trait:ident) => {
-        impl $crate::TraitQuery for dyn $trait {}
-
-        impl<T: $trait + $crate::imports::Component> $crate::TraitQueryMarker<dyn $trait> for (T,) {
-            type Covered = T;
-            fn cast(ptr: *mut u8) -> *mut dyn $trait {
-                ptr as *mut T as *mut _
-            }
-        }
-
         impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
             type Item = $crate::ReadTraits<'w, dyn $trait>;
             type Fetch = $crate::ReadAllTraitsFetch<'w, dyn $trait>;

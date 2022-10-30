@@ -13,6 +13,7 @@ categories = ["game-development"]
 
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "fe7ebd432675e2fb155028a7bda43482e0c90a52" }
+bevy-trait-query-impl = { path = "proc-macro" }
 
 [dev-dependencies]
 criterion = "0.4"
