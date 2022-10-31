@@ -320,3 +320,9 @@ pub trait GenericTrait<T: Debug> {
         val.clone() + val
     }
 }
+
+#[allow(dead_code)]
+fn generic_system<T: Debug + 'static>(q: Query<&dyn GenericTrait<T>>) {
+    // Assert that this current function is a system.
+    let _x = IntoSystem::into_system(generic_system::<T>);
+}
