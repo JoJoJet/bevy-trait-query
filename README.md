@@ -26,6 +26,7 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 ```rust
 use bevy::prelude::*;
 
+
 // Some trait that we wish to use in queries.
 
 #[bevy_trait_query::queryable]
@@ -106,25 +107,6 @@ The performance of trait queries is quite competitive. Here are some benchmarks 
 | 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
 | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
 | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
-
-## Poor use cases
-
-You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
-
-One naive use would be querying for a trait that looks something like:
-
-```rust
-trait Person {
-    fn name(&self) -> &str;
-}
-```
-
-A far better way of expressing this would be to store the name in a separate component
-and query for that directly, making `Person` a simple marker component.
-
-Trait queries are often the most *obvious* solution to a problem, but not always the best one.
-For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
-https://github.com/bevyengine/rfcs/pull/39.
 
 <!-- cargo-rdme end -->
 
