@@ -1,16 +1,15 @@
 use super::*;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 #[derive(Resource, Default)]
 pub struct Output(Vec<String>);
 
-pub trait Person: 'static {
+#[queryable]
+pub trait Person {
     fn name(&self) -> &str;
     fn age(&self) -> u32;
     fn set_age(&mut self, age: u32);
 }
-
-impl_trait_query!(Person);
 
 #[derive(Component)]
 struct Fem;
@@ -189,12 +188,11 @@ fn age_up_not(mut q: Query<&mut dyn Person, Without<Fem>>) {
     }
 }
 
-pub trait Messages: 'static {
+#[queryable]
+pub trait Messages {
     fn send(&mut self, _: &dyn Display);
     fn read(&self) -> &[String];
 }
-
-impl_trait_query!(Messages);
 
 #[derive(Component)]
 pub struct RecA(Vec<String>);
@@ -286,9 +284,9 @@ fn multi_register() {
         .register_component_as::<dyn Messages, RecB>()
         .register_component_as::<dyn Messages, RecB>();
 
-    world.spawn().insert(RecA(vec![]));
-    world.spawn().insert_bundle((RecA(vec![]), RecB(vec![])));
-    world.spawn().insert(RecB(vec![]));
+    world.spawn(RecA(vec![]));
+    world.spawn((RecA(vec![]), RecB(vec![])));
+    world.spawn(RecB(vec![]));
 
     let mut stage = SystemStage::parallel();
     stage.add_system(count_impls);
@@ -309,4 +307,22 @@ fn multi_register() {
         world.resource::<Output>().0,
         &["1 Traits", "2 Traits", "1 Traits"]
     );
+}
+
+#[queryable]
+pub trait GenericTrait<T: Debug> {
+    fn get(&self) -> T;
+    fn get_double(&self) -> T
+    where
+        T: std::ops::Add<Output = T> + Clone,
+    {
+        let val = self.get();
+        val.clone() + val
+    }
+}
+
+#[allow(dead_code)]
+fn generic_system<T: Debug + 'static>(q: Query<&dyn GenericTrait<T>>) {
+    // Assert that this current function is a system.
+    let _x = IntoSystem::into_system(generic_system::<T>);
 }

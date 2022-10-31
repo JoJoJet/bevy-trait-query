@@ -22,13 +22,16 @@
 //! ```
 //! use bevy::prelude::*;
 //!
+//! # // Required to make the macro work, because cargo thinks
+//! # // we are in `bevy_trait_query` when compiling this example.
+//! # use bevy_trait_query::*;
+//!
 //! // Some trait that we wish to use in queries.
-//! pub trait Tooltip: 'static {
+//!
+//! #[bevy_trait_query::queryable]
+//! pub trait Tooltip {
 //!     fn tooltip(&self) -> &str;
 //! }
-//!
-//! // Add the necessary impls for querying.
-//! bevy_trait_query::impl_trait_query!(Tooltip);
 //!
 //! // Define some custom components which will implement the trait.
 //!
@@ -145,6 +148,8 @@ pub mod change_detection;
 
 /// Marker for traits that can be used in queries.
 pub trait TraitQuery: 'static {}
+
+pub use bevy_trait_query_impl::queryable;
 
 #[doc(hidden)]
 pub trait TraitQueryMarker<Trait: ?Sized + TraitQuery> {
@@ -281,241 +286,6 @@ pub mod imports {
             Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats,
         },
         storage::Table,
-    };
-}
-
-#[macro_export]
-macro_rules! impl_trait_query {
-    ($trait:ident) => {
-        impl $crate::TraitQuery for dyn $trait {}
-
-        impl<T: $trait + $crate::imports::Component> $crate::TraitQueryMarker<dyn $trait> for (T,) {
-            type Covered = T;
-            fn cast(ptr: *mut u8) -> *mut dyn $trait {
-                ptr as *mut T as *mut _
-            }
-        }
-
-        impl<'w> $crate::imports::WorldQueryGats<'w> for &dyn $trait {
-            type Item = $crate::ReadTraits<'w, dyn $trait>;
-            type Fetch = $crate::ReadAllTraitsFetch<'w, dyn $trait>;
-        }
-
-        unsafe impl $crate::imports::ReadOnlyWorldQuery for &dyn $trait {}
-
-        unsafe impl<'a> $crate::imports::WorldQuery for &'a dyn $trait {
-            type ReadOnly = Self;
-            type State = $crate::TraitQueryState<dyn $trait>;
-
-            #[inline]
-            unsafe fn init_fetch<'w>(
-                world: &'w World,
-                state: &Self::State,
-                last_change_tick: u32,
-                change_tick: u32,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::init_fetch(
-                    world,
-                    state,
-                    last_change_tick,
-                    change_tick,
-                )
-            }
-
-            #[inline]
-            unsafe fn clone_fetch<'w>(
-                fetch: &<Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::clone_fetch(fetch)
-            }
-
-            #[inline]
-            fn shrink<'wlong: 'wshort, 'wshort>(
-                item: $crate::imports::QueryItem<'wlong, Self>,
-            ) -> $crate::imports::QueryItem<'wshort, Self> {
-                item
-            }
-
-            const IS_DENSE: bool = <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::IS_DENSE;
-            const IS_ARCHETYPAL: bool =
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::IS_ARCHETYPAL;
-
-            #[inline]
-            unsafe fn set_archetype<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                state: &Self::State,
-                archetype: &'w $crate::imports::Archetype,
-                tables: &'w $crate::imports::Table,
-            ) {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::set_archetype(
-                    fetch, state, archetype, tables,
-                );
-            }
-
-            #[inline]
-            unsafe fn set_table<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                state: &Self::State,
-                table: &'w $crate::imports::Table,
-            ) {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::set_table(fetch, state, table);
-            }
-
-            #[inline]
-            unsafe fn fetch<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                entity: $crate::imports::Entity,
-                table_row: usize,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::fetch(
-                    fetch,
-                    entity,
-                    table_row,
-                )
-            }
-
-            #[inline]
-            fn update_component_access(
-                state: &Self::State,
-                access: &mut $crate::imports::FilteredAccess<$crate::imports::ComponentId>,
-            ) {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::update_component_access(
-                    state, access,
-                );
-            }
-
-            #[inline]
-            fn update_archetype_component_access(
-                state: &Self::State,
-                archetype: &$crate::imports::Archetype,
-                access: &mut $crate::imports::Access<$crate::imports::ArchetypeComponentId>,
-            ) {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
-            }
-
-            #[inline]
-            fn init_state(world: &mut World) -> Self::State {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::init_state(world)
-            }
-
-            #[inline]
-            fn matches_component_set(
-                state: &Self::State,
-                set_contains_id: &impl Fn($crate::imports::ComponentId) -> bool,
-            ) -> bool {
-                <$crate::All<&dyn $trait> as $crate::imports::WorldQuery>::matches_component_set(state, set_contains_id)
-            }
-        }
-
-        impl<'w> $crate::imports::WorldQueryGats<'w> for &mut dyn $trait {
-            type Item = $crate::WriteTraits<'w, dyn $trait>;
-            type Fetch = $crate::WriteAllTraitsFetch<'w, dyn $trait>;
-        }
-
-        unsafe impl<'a> $crate::imports::WorldQuery for &'a mut dyn $trait {
-            type ReadOnly = &'a dyn $trait;
-            type State = $crate::TraitQueryState<dyn $trait>;
-
-            #[inline]
-            unsafe fn init_fetch<'w>(
-                world: &'w World,
-                state: &Self::State,
-                last_change_tick: u32,
-                change_tick: u32,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::init_fetch(
-                    world,
-                    state,
-                    last_change_tick,
-                    change_tick,
-                )
-            }
-
-            #[inline]
-            unsafe fn clone_fetch<'w>(
-                fetch: &<Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Fetch {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::clone_fetch(fetch)
-            }
-
-            #[inline]
-            fn shrink<'wlong: 'wshort, 'wshort>(
-                item: $crate::imports::QueryItem<'wlong, Self>,
-            ) -> $crate::imports::QueryItem<'wshort, Self> {
-                item
-            }
-
-            const IS_DENSE: bool = <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::IS_DENSE;
-            const IS_ARCHETYPAL: bool =
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::IS_ARCHETYPAL;
-
-            #[inline]
-            unsafe fn set_archetype<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                state: &Self::State,
-                archetype: &'w $crate::imports::Archetype,
-                table: &'w $crate::imports::Table,
-            ) {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::set_archetype(
-                    fetch, state, archetype, table,
-                );
-            }
-
-            #[inline]
-            unsafe fn set_table<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                state: &Self::State,
-                table: &'w $crate::imports::Table,
-            ) {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::set_table(fetch, state, table);
-            }
-
-            #[inline]
-            unsafe fn fetch<'w>(
-                fetch: &mut <Self as $crate::imports::WorldQueryGats<'w>>::Fetch,
-                entity: $crate::imports::Entity,
-                table_row: usize,
-            ) -> <Self as $crate::imports::WorldQueryGats<'w>>::Item {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::fetch(
-                    fetch,
-                    entity,
-                    table_row,
-                )
-            }
-
-            #[inline]
-            fn update_component_access(
-                state: &Self::State,
-                access: &mut $crate::imports::FilteredAccess<$crate::imports::ComponentId>,
-            ) {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::update_component_access(
-                    state, access,
-                );
-            }
-
-            #[inline]
-            fn update_archetype_component_access(
-                state: &Self::State,
-                archetype: &$crate::imports::Archetype,
-                access: &mut $crate::imports::Access<$crate::imports::ArchetypeComponentId>,
-            ) {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
-            }
-
-
-            #[inline]
-            fn init_state(world: &mut World) -> Self::State {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::init_state(world)
-            }
-
-            #[inline]
-            fn matches_component_set(
-                state: &Self::State,
-                set_contains_id: &impl Fn($crate::imports::ComponentId) -> bool,
-            ) -> bool {
-                <$crate::All<&mut dyn $trait> as $crate::imports::WorldQuery>::matches_component_set(state, set_contains_id)
-            }
-        }
     };
 }
 

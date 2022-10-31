@@ -1,0 +1,21 @@
+[package]
+name = "bevy-trait-query-impl"
+version = "0.1.0-dev"
+edition = "2021"
+
+description = "Procedural macro for `bevy-trait-query`"
+repository = "https://github.com/JoJoJet/bevy-trait-query/"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "gamedev", "plugin", "query", "trait"]
+categories = ["game-development"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+syn = "1"
+quote = "1"
+proc-macro-crate = "1"
