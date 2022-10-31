@@ -26,7 +26,6 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 ```rust
 use bevy::prelude::*;
 
-
 // Some trait that we wish to use in queries.
 
 #[bevy_trait_query::queryable]

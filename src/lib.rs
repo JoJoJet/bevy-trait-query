@@ -21,7 +21,7 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//!
+//! #
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
 //! # use bevy_trait_query::*;
