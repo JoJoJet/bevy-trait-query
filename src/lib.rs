@@ -10,8 +10,8 @@
 //!
 //! # Note on reliability
 //!
-//! This crate is experimental, and not battle-tested. It seems to work in my personal testing,
-//! but it very well could contain undefined behavior. Use with caution (and miri!).
+//! While this crate has seen some use in the world with no issues yet,
+//! it is still quite new and experimental. Use with caution (and miri!).
 //!
 //! If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 //!
