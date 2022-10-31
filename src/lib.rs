@@ -10,8 +10,8 @@
 //!
 //! # Note on reliability
 //!
-//! This crate is experimental, and not battle-tested. It seems to work in my personal testing,
-//! but it very well could contain undefined behavior. Use with caution (and miri!).
+//! While this crate has seen some use in the world with no issues yet,
+//! it is still quite new and experimental. Use with caution (and miri!).
 //!
 //! If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 //!
@@ -21,7 +21,7 @@
 //!
 //! ```
 //! use bevy::prelude::*;
-//!
+//! #
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
 //! # use bevy_trait_query::*;
@@ -108,25 +108,28 @@
 //! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
 //! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
-//! # Poor use cases
-//!
-//! You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
-//!
-//! One naive use would be querying for a trait that looks something like:
-//!
-//! ```
-//! trait Person {
-//!     fn name(&self) -> &str;
-//! }
-//! ```
-//!
-//! A far better way of expressing this would be to store the name in a separate component
-//! and query for that directly, making `Person` a simple marker component.
-//!
-//! Trait queries are often the most *obvious* solution to a problem, but not always the best one.
-//! For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
-//! https://github.com/bevyengine/rfcs/pull/39.
-//!
+
+/// # Poor use cases
+///
+/// You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
+///
+/// One naive use would be querying for a trait that looks something like:
+///
+/// ```
+/// trait Person {
+///     fn name(&self) -> &str;
+/// }
+/// ```
+///
+/// A far better way of expressing this would be to store the name in a separate component
+/// and query for that directly, making `Person` a simple marker component.
+///
+/// Trait queries are often the most *obvious* solution to a problem, but not always the best one.
+/// For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
+/// https://github.com/bevyengine/rfcs/pull/39.
+///
+/// This module only exists to hold documentation.
+pub mod poor_use_cases {}
 
 use std::cell::UnsafeCell;
 
