@@ -12,7 +12,7 @@ categories = ["game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "fe7ebd432675e2fb155028a7bda43482e0c90a52" }
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "30e35764a127da382e300cd2eb390079322c5ece" }
 bevy-trait-query-impl = { path = "proc-macro" }
 
 [dev-dependencies]
