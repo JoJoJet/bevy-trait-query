@@ -1320,6 +1320,24 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
     }
 }
 
+impl<'w, Trait: ?Sized + TraitQuery> ReadTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> CombinedReadTraitsIter<'w, Trait> {
+        self.into_iter()
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> WriteTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> CombinedReadTraitsIter<'_, Trait> {
+        self.into_iter()
+    }
+    /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
+    pub fn iter_mut(&mut self) -> CombinedWriteTraitsIter<'_, Trait> {
+        self.into_iter()
+    }
+}
+
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
     type Item = &'w Trait;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
