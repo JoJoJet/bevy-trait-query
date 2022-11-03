@@ -295,9 +295,7 @@ fn multi_register() {
         for traits in &q {
             // Make sure each impl gets yielded the correct number of times.
             // We don't want any of them to get double-counted.
-            output
-                .0
-                .push(format!("{} Traits", traits.into_iter().count()));
+            output.0.push(format!("{} Traits", traits.iter().count()));
         }
     }
 
