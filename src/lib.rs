@@ -136,7 +136,7 @@ use std::cell::UnsafeCell;
 use bevy::{
     ecs::{
         component::{ComponentId, ComponentTicks, StorageType},
-        query::{QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats},
+        query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
         storage::{ComponentSparseSet, SparseSets, Table},
     },
     prelude::*,
@@ -285,9 +285,7 @@ pub mod imports {
         archetype::{Archetype, ArchetypeComponentId},
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery, WorldQueryGats,
-        },
+        query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
         storage::Table,
     };
 }
@@ -424,16 +422,13 @@ enum ReadStorage<'w, Trait: ?Sized> {
     },
 }
 
-impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a Trait> {
-    type Item = &'w Trait;
-    type Fetch = ReadTraitFetch<'w, Trait>;
-}
-
 unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a T> {}
 
 /// SAFETY: We only access the components registered in `DynQueryState`.
 /// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
+    type Item<'w> = &'w Trait;
+    type Fetch<'w> = ReadTraitFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -456,9 +451,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     }
 
     #[inline]
-    unsafe fn clone_fetch<'w>(
-        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
-    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         ReadTraitFetch {
             storage: match fetch.storage {
                 ReadStorage::Uninit => ReadStorage::Uninit,
@@ -526,10 +519,10 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
     #[inline]
     unsafe fn fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
+    ) -> Self::Item<'w> {
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
@@ -622,14 +615,11 @@ enum WriteStorage<'w, Trait: ?Sized> {
     },
 }
 
-impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for One<&'a mut Trait> {
-    type Item = Mut<'w, Trait>;
-    type Fetch = WriteTraitFetch<'w, Trait>;
-}
-
 /// SAFETY: We only access the components registered in `DynQueryState`.
 /// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
+    type Item<'w> = Mut<'w, Trait>;
+    type Fetch<'w> = WriteTraitFetch<'w, Trait>;
     type ReadOnly = One<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -649,9 +639,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 
     #[inline]
-    unsafe fn clone_fetch<'w>(
-        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
-    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         WriteTraitFetch {
             storage: match fetch.storage {
                 WriteStorage::Uninit => WriteStorage::Uninit,
@@ -736,7 +724,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 
     #[inline]
     unsafe fn fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: usize,
     ) -> Mut<'w, Trait> {
@@ -1050,17 +1038,14 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     change_tick: u32,
 }
 
-impl<'w, 'a, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&'a Trait> {
-    type Item = ReadTraits<'w, Trait>;
-    type Fetch = ReadAllTraitsFetch<'w, Trait>;
-}
-
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait> {}
 
 /// SAFETY: We only access the components registered in the trait registry.
 /// This is known to match the set of components in the `DynQueryState`,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
+    type Item<'w> = ReadTraits<'w, Trait>;
+    type Fetch<'w> = ReadAllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -1079,9 +1064,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 
     #[inline]
-    unsafe fn clone_fetch<'w>(
-        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
-    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         ReadAllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
@@ -1117,10 +1100,10 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
     #[inline]
     unsafe fn fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         table_row: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
+    ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
         ReadTraits {
@@ -1172,15 +1155,12 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + TraitQuery> WorldQueryGats<'w> for All<&mut Trait> {
-    type Item = WriteTraits<'w, Trait>;
-    type Fetch = WriteAllTraitsFetch<'w, Trait>;
-}
-
 /// SAFETY: We only access the components registered in the trait registry.
 /// This is known to match the set of components in the `DynQueryState`,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
+    type Item<'w> = WriteTraits<'w, Trait>;
+    type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -1201,9 +1181,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     }
 
     #[inline]
-    unsafe fn clone_fetch<'w>(
-        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
-    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         WriteAllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
@@ -1233,10 +1211,10 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         table_row: usize,
-    ) -> WriteTraits<'w, Trait> {
+    ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
         WriteTraits {
