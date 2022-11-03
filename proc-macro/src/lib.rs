@@ -86,13 +86,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
     let (impl_generics_with_lifetime, ..) = generics_with_lifetime.split_for_impl();
 
     let trait_object_query_code = quote! {
-        impl #impl_generics_with_lifetime #imports::WorldQueryGats<'__a> for &#trait_object
-        #where_clause
-        {
-            type Item = #my_crate::ReadTraits<'__a, #trait_object>;
-            type Fetch = #my_crate::ReadAllTraitsFetch<'__a, #trait_object>;
-        }
-
         unsafe impl #impl_generics #imports::ReadOnlyWorldQuery for &#trait_object
         #where_clause
         {}
@@ -100,6 +93,8 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for &'__a #trait_object
         #where_clause
         {
+            type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
+            type Fetch<'__w> = #my_crate::ReadAllTraitsFetch<'__w, #trait_object>;
             type ReadOnly = Self;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
@@ -109,7 +104,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 state: &Self::State,
                 last_change_tick: u32,
                 change_tick: u32,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Fetch {
+            ) -> Self::Fetch<'w> {
                 <#my_crate::All<&#trait_object> as #imports::WorldQuery>::init_fetch(
                     world,
                     state,
@@ -120,15 +115,15 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn clone_fetch<'w>(
-                fetch: &<Self as #imports::WorldQueryGats<'w>>::Fetch,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Fetch {
+                fetch: &Self::Fetch<'w>,
+            ) -> Self::Fetch<'w> {
                 <#my_crate::All<&#trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
             }
 
             #[inline]
             fn shrink<'wlong: 'wshort, 'wshort>(
-                item: #imports::QueryItem<'wlong, Self>,
-            ) -> #imports::QueryItem<'wshort, Self> {
+                item: Self::Item<'wlong>,
+            ) -> Self::Item<'wshort> {
                 item
             }
 
@@ -138,7 +133,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn set_archetype<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 state: &Self::State,
                 archetype: &'w #imports::Archetype,
                 tables: &'w #imports::Table,
@@ -150,7 +145,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn set_table<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 state: &Self::State,
                 table: &'w #imports::Table,
             ) {
@@ -159,10 +154,10 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn fetch<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 entity: #imports::Entity,
                 table_row: usize,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Item {
+            ) -> Self::Item<'w> {
                 <#my_crate::All<&#trait_object> as #imports::WorldQuery>::fetch(
                     fetch,
                     entity,
@@ -203,17 +198,11 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
         }
 
-
-        impl #impl_generics_with_lifetime #imports::WorldQueryGats<'__a> for &mut #trait_object
-        #where_clause
-        {
-            type Item = #my_crate::WriteTraits<'__a, #trait_object>;
-            type Fetch = #my_crate::WriteAllTraitsFetch<'__a, #trait_object>;
-        }
-
         unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for &'__a mut #trait_object
         #where_clause
         {
+            type Item<'__w> = #my_crate::WriteTraits<'__w, #trait_object>;
+            type Fetch<'__w> = #my_crate::WriteAllTraitsFetch<'__w, #trait_object>;
             type ReadOnly = &'__a #trait_object;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
@@ -223,7 +212,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 state: &Self::State,
                 last_change_tick: u32,
                 change_tick: u32,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Fetch {
+            ) -> Self::Fetch<'w> {
                 <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::init_fetch(
                     world,
                     state,
@@ -234,15 +223,15 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn clone_fetch<'w>(
-                fetch: &<Self as #imports::WorldQueryGats<'w>>::Fetch,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Fetch {
+                fetch: &Self::Fetch<'w>,
+            ) -> Self::Fetch<'w> {
                 <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
             }
 
             #[inline]
             fn shrink<'wlong: 'wshort, 'wshort>(
-                item: #imports::QueryItem<'wlong, Self>,
-            ) -> #imports::QueryItem<'wshort, Self> {
+                item: Self::Item<'wlong>,
+            ) -> Self::Item<'wshort> {
                 item
             }
 
@@ -252,7 +241,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn set_archetype<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 state: &Self::State,
                 archetype: &'w #imports::Archetype,
                 table: &'w #imports::Table,
@@ -264,7 +253,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn set_table<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 state: &Self::State,
                 table: &'w #imports::Table,
             ) {
@@ -273,10 +262,10 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn fetch<'w>(
-                fetch: &mut <Self as #imports::WorldQueryGats<'w>>::Fetch,
+                fetch: &mut Self::Fetch<'w>,
                 entity: #imports::Entity,
                 table_row: usize,
-            ) -> <Self as #imports::WorldQueryGats<'w>>::Item {
+            ) -> Self::Item<'w> {
                 <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::fetch(
                     fetch,
                     entity,
