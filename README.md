@@ -1,12 +1,10 @@
 # bevy-trait-query
 
-<!-- cargo-rdme start -->
-
 An implementation of trait queries for the bevy game engine.
 
 Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
 
-| Bevy Version | Crate Version |
+| Bevy Version | [Crate Version](CHANGELOG.md) |
 |--------------|---------------|
 | 0.9          | 0.1           |
 | 0.8          | 0.0.3         |
@@ -20,6 +18,8 @@ it is still quite new and experimental. Use with caution (and miri!).
 If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 
 ## Overview
+
+<!-- cargo-rdme start -->
 
 `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
 
@@ -97,7 +97,7 @@ fn show_tooltips_one(
 }
 ```
 
-## Performance
+### Performance
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
