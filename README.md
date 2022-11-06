@@ -17,9 +17,9 @@ it is still quite new and experimental. Use with caution (and miri!).
 
 If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
 
-<!-- cargo-rdme start -->
+## Overview
 
-### Overview
+<!-- cargo-rdme start -->
 
 `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
 

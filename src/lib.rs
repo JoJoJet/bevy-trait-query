@@ -1,5 +1,3 @@
-//! # Overview
-//!
 //! `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
 //!
 //! ```
