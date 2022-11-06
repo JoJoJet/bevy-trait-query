@@ -19,7 +19,7 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 
 <!-- cargo-rdme start -->
 
-## Overview
+### Overview
 
 `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
 
@@ -97,7 +97,7 @@ fn show_tooltips_one(
 }
 ```
 
-## Performance
+### Performance
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
