@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_quote, ItemTrait, Lifetime, Result};
+use syn::{parse_quote, ItemTrait, Result, TraitItem};
 
 /// # Note
 ///
@@ -30,12 +30,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     // Add `'static` bounds, unless the user asked us not to.
     if !no_bounds.is_some() {
-        trait_definition
-            .supertraits
-            .push(syn::TypeParamBound::Lifetime(Lifetime::new(
-                "'static",
-                Span::call_site(),
-            )));
+        trait_definition.supertraits.push(parse_quote!('static));
 
         for param in &mut trait_definition.generics.params {
             // Make sure the parameters to the trait are `'static`.
