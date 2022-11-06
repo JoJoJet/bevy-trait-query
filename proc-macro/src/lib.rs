@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
-use syn::{parse_quote, ItemTrait, Lifetime, Result};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
+use syn::{parse_quote, ItemTrait, Result, TraitItem};
 
 /// # Note
 ///
@@ -30,12 +30,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     // Add `'static` bounds, unless the user asked us not to.
     if !no_bounds.is_some() {
-        trait_definition
-            .supertraits
-            .push(syn::TypeParamBound::Lifetime(Lifetime::new(
-                "'static",
-                Span::call_site(),
-            )));
+        trait_definition.supertraits.push(parse_quote!('static));
 
         for param in &mut trait_definition.generics.params {
             // Make sure the parameters to the trait are `'static`.
@@ -43,9 +38,56 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 param.bounds.push(parse_quote!('static));
             }
         }
+
+        for item in &mut trait_definition.items {
+            // Make sure all associated types are `'static`.
+            if let TraitItem::Type(assoc) = item {
+                assoc.bounds.push(parse_quote!('static));
+            }
+        }
     }
 
-    let (impl_generics, trait_generics, where_clause) = trait_definition.generics.split_for_impl();
+    let mut impl_generics_list = vec![];
+    let mut trait_generics_list = vec![];
+    let where_clause = trait_definition.generics.where_clause.clone();
+
+    for param in &trait_definition.generics.params {
+        impl_generics_list.push(param.clone());
+        match param {
+            syn::GenericParam::Type(param) => {
+                let ident = &param.ident;
+                trait_generics_list.push(quote! { #ident });
+            }
+            syn::GenericParam::Lifetime(param) => {
+                let ident = &param.lifetime;
+                trait_generics_list.push(quote! { #ident });
+            }
+            syn::GenericParam::Const(param) => {
+                let ident = &param.ident;
+                trait_generics_list.push(quote! { #ident });
+            }
+        }
+    }
+
+    // Add generics for unbounded associated types.
+    for item in &trait_definition.items {
+        if let TraitItem::Type(assoc) = item {
+            if !assoc.generics.params.is_empty() {
+                return Err(syn::Error::new(
+                    assoc.ident.span(),
+                    "Generic associated types are not supported in trait queries",
+                ));
+            }
+            let ident = &assoc.ident;
+            let lower_ident = format_ident!("__{ident}");
+            let bound = &assoc.bounds;
+            impl_generics_list.push(parse_quote! { #lower_ident: #bound });
+            trait_generics_list.push(quote! { #ident = #lower_ident });
+        }
+    }
+
+    let impl_generics = quote! { <#( #impl_generics_list ,)*> };
+    let trait_generics = quote! { <#( #trait_generics_list ,)*> };
 
     let trait_object = quote! { dyn #trait_name #trait_generics };
 
@@ -62,28 +104,27 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     let trait_query = quote! { #my_crate::TraitQuery };
 
-    let mut marker_generics = trait_definition.generics.clone();
-    marker_generics
-        .params
-        .push(parse_quote!(__T: #trait_name #trait_generics + #imports::Component));
-    let (marker_impl_generics, ..) = marker_generics.split_for_impl();
+    let mut marker_impl_generics_list = impl_generics_list.clone();
+    marker_impl_generics_list
+        .push(parse_quote!(__Component: #trait_name #trait_generics + #imports::Component));
+    let marker_impl_generics = quote! { <#( #marker_impl_generics_list ,)*> };
 
     let marker_impl_code = quote! {
         impl #impl_generics #trait_query for #trait_object #where_clause {}
 
-        impl #marker_impl_generics #my_crate::TraitQueryMarker::<#trait_object> for (__T,)
+        impl #marker_impl_generics #my_crate::TraitQueryMarker::<#trait_object> for (__Component,)
         #where_clause
         {
-            type Covered = __T;
+            type Covered = __Component;
             fn cast(ptr: *mut u8) -> *mut #trait_object {
-                ptr as *mut __T as *mut _
+                ptr as *mut __Component as *mut _
             }
         }
     };
 
-    let mut generics_with_lifetime = trait_definition.generics.clone();
-    generics_with_lifetime.params.insert(0, parse_quote!('__a));
-    let (impl_generics_with_lifetime, ..) = generics_with_lifetime.split_for_impl();
+    let mut impl_generics_with_lifetime = impl_generics_list.clone();
+    impl_generics_with_lifetime.insert(0, parse_quote!('__a));
+    let impl_generics_with_lifetime = quote! { <#( #impl_generics_with_lifetime ,)*> };
 
     let trait_object_query_code = quote! {
         unsafe impl #impl_generics #imports::ReadOnlyWorldQuery for &#trait_object
