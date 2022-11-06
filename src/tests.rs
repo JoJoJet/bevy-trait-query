@@ -324,3 +324,14 @@ fn generic_system<T: Debug + 'static>(_q: Query<&dyn GenericTrait<T>>) {
     // Assert that this current function is a system.
     let _x = IntoSystem::into_system(generic_system::<T>);
 }
+
+#[queryable]
+pub trait AssociatedTrait {
+    type T: Display;
+}
+
+#[allow(dead_code)]
+fn associated_type_system<T: Display + 'static>(_q: Query<&dyn AssociatedTrait<T = T>>) {
+    // Assert that this current function is a system.
+    let _x = IntoSystem::into_system(associated_type_system::<T>);
+}
