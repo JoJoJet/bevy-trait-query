@@ -4,6 +4,10 @@
 
 ## Version 0.0.3
 
+### Fixed
+
+* Duplicate trait impl registrations are now ignored (soundness issue).
+
 ## Version 0.0.2
 
 * Added the `One<>` adapter for trait queries.
