@@ -105,18 +105,18 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     let mut marker_impl_generics_list = impl_generics_list.clone();
     marker_impl_generics_list
-        .push(parse_quote!(__T: #trait_name #trait_generics + #imports::Component));
+        .push(parse_quote!(__Component: #trait_name #trait_generics + #imports::Component));
     let marker_impl_generics = quote! { <#( #marker_impl_generics_list ,)*> };
 
     let marker_impl_code = quote! {
         impl #impl_generics #trait_query for #trait_object #where_clause {}
 
-        impl #marker_impl_generics #my_crate::TraitQueryMarker::<#trait_object> for (__T,)
+        impl #marker_impl_generics #my_crate::TraitQueryMarker::<#trait_object> for (__Component,)
         #where_clause
         {
-            type Covered = __T;
+            type Covered = __Component;
             fn cast(ptr: *mut u8) -> *mut #trait_object {
-                ptr as *mut __T as *mut _
+                ptr as *mut __Component as *mut _
             }
         }
     };
