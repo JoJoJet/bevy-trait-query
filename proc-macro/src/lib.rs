@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_quote, ItemTrait, Result, TraitItem};
 
 /// # Note
@@ -79,9 +79,10 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 ));
             }
             let ident = &assoc.ident;
+            let lower_ident = format_ident!("__{ident}");
             let bound = &assoc.bounds;
-            impl_generics_list.push(parse_quote! { #ident: #bound });
-            trait_generics_list.push(quote! { #ident = #ident });
+            impl_generics_list.push(parse_quote! { #lower_ident: #bound });
+            trait_generics_list.push(quote! { #ident = #lower_ident });
         }
     }
 
