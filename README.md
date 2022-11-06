@@ -10,7 +10,7 @@ Before using this crate, you should be familiar with bevy: https://bevyengine.or
 | 0.8          | 0.0.3         |
 | Preview      | Main branch   |
 
-[Changelog](CHANGELOG).
+[Changelog](CHANGELOG.md).
 
 ## Note on reliability
 
