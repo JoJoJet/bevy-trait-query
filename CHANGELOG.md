@@ -7,7 +7,7 @@
 ### Added
 
 * Added the `#[queryable]` macro, which adds query support to a trait definition.
-* Added `&dyn Trait` and `&mut dyn Trait` as queries, which fetch all trait impls for each entity.
+* Added `&dyn Trait` and `&mut dyn Trait` as queries, which use the `All<>` behavior.
 * Added iterator methods to `All<>` query items.
 
 ### Changed
