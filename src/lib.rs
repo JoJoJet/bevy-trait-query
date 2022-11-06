@@ -299,16 +299,15 @@ pub struct TraitQueryState<Trait: ?Sized> {
 impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
-        fn error<T: ?Sized + 'static>() -> ! {
-            panic!(
+        fn missing_registry<T: ?Sized + 'static>() -> TraitImplRegistry<T> {
+            warn!(
                 "no components found matching `{}`, did you forget to register them?",
                 std::any::type_name::<T>()
-            )
+            );
+            TraitImplRegistry::<T>::default()
         }
 
-        let mut registry = world
-            .get_resource_mut::<TraitImplRegistry<Trait>>()
-            .unwrap_or_else(|| error::<Trait>());
+        let mut registry = world.get_resource_or_insert_with(missing_registry);
         registry.seal();
         Self {
             components: registry.components.clone().into_boxed_slice(),
