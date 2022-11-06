@@ -11,7 +11,7 @@
 ### Changed
 
 * Instead of panicking, a warning is now emitted when no trait impls are registered.
-* Bevy's default features are no longer enabled.
+* Bevy's default features are no longer required.
 
 ### Removed
 
