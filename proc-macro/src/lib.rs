@@ -38,6 +38,13 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 param.bounds.push(parse_quote!('static));
             }
         }
+
+        for item in &mut trait_definition.items {
+            // Make sure all associated types are `'static`.
+            if let TraitItem::Type(assoc) = item {
+                assoc.bounds.push(parse_quote!('static));
+            }
+        }
     }
 
     let (impl_generics, trait_generics, where_clause) = trait_definition.generics.split_for_impl();
