@@ -51,6 +51,7 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
 //! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
@@ -118,6 +119,7 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
 //! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
@@ -182,6 +184,7 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
 //! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
