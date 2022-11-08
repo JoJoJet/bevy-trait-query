@@ -24,7 +24,6 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
-//! #
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
 //! # use bevy_trait_query::*;
@@ -153,7 +152,7 @@
 //! # }
 //! #
 //! # fn setup(mut commands: Commands) {
-//! #     commands.spawn(Person("Fourier".to_owned()));
+//! #     commands.spawn(Player("Fourier".to_owned()));
 //! #     commands.spawn(Monster);
 //! # }
 //!
