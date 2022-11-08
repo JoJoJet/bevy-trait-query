@@ -55,8 +55,6 @@
 //! #     fn tooltip(&self) -> &str;
 //! # }
 //! #
-//! // These components will implement `Tooltip`.
-//!
 //! #[derive(Component)]
 //! struct Player(String);
 //!
@@ -78,7 +76,7 @@
 //! }
 //!
 //! // impl for Villager, Monster, etc.
-//! #
+//!
 //! # impl Tooltip for Villager {
 //! #     fn tooltip(&self) -> &str {
 //! #         "Villager"

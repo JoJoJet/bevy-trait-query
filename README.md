@@ -66,8 +66,6 @@ Since Rust unfortunately lacks any kind of reflection, it is necessary to regist
 component with the trait when the app is first constructed.
 
 ```rust
-// These components will implement `Tooltip`.
-
 #[derive(Component)]
 struct Player(String);
 
@@ -86,6 +84,7 @@ impl Tooltip for Player {
 }
 
 // impl for Villager, Monster, etc.
+
 fn main() {
     // We must import this trait in order to register our components.
     // If we don't register them, they will be invisible to the game engine.
