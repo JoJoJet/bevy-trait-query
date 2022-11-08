@@ -169,7 +169,7 @@
 //!         }
 //!     }
 //!
-//!     // If you instead just want to iterate over all tooltips, you can just do:
+//!     // If you instead just want to iterate over all tooltips, you can do:
 //!     for tooltip in tooltips.iter().flatten() {
 //!         println!("Tooltip: {}", tooltip.tooltip());
 //!     }
