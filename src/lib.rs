@@ -50,6 +50,8 @@
 //! component with the trait when the app is first constructed.
 //!
 //! ```
+//! # use bevy::prelude::*;
+//! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
 //! #     fn tooltip(&self) -> &str;
@@ -109,6 +111,8 @@
 //! that match a trait query.
 //!
 //! ```
+//! # use bevy::prelude::*;
+//! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
 //! #     fn tooltip(&self) -> &str;
@@ -171,6 +175,8 @@
 //! over all trait impls.
 //!
 //! ```
+//! # use bevy::prelude::*;
+//! #
 //! # #[bevy_trait_query::queryable]
 //! # pub trait Tooltip {
 //! #     fn tooltip(&self) -> &str;
