@@ -142,7 +142,6 @@
 //! # }
 //! #
 //! # fn main() {
-//! #     use bevy_trait_query::RegisterExt;
 //! #     App::new()
 //! #         .add_plugins(DefaultPlugins)
 //! #         .register_component_as::<dyn Tooltip, Player>()
