@@ -72,11 +72,14 @@
 //!
 //! // Trait impl boilerplate omitted...
 //!
-//! # impl Tooltip for Player {
+//! impl Tooltip for Player {
+//!     // ...
 //! #     fn tooltip(&self) -> &str {
 //! #         &self.0
 //! #     }
-//! # }
+//! }
+//!
+//! // impl for Villager, Monster, etc.
 //! #
 //! # impl Tooltip for Villager {
 //! #     fn tooltip(&self) -> &str {

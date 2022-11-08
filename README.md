@@ -83,6 +83,11 @@ struct Monster;
 
 // Trait impl boilerplate omitted...
 
+impl Tooltip for Player {
+    // ...
+}
+
+// impl for Villager, Monster, etc.
 fn main() {
     // We must import this trait in order to register our components.
     // If we don't register them, they will be invisible to the game engine.
