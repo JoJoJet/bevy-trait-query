@@ -58,8 +58,6 @@ fn show_tooltips_system(
 ) {
     // ...
 }
-
-bevy::ecs::system::assert_is_system(show_tooltips_system);
 ```
 
 Since Rust unfortunately lacks any kind of reflection, it is necessary to register each
