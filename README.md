@@ -125,7 +125,7 @@ fn show_tooltips(
 ```
 
 Alternatively, if you expect to only have component implementing the trait for each entity,
-you can use the filter [`One`]. This has significantly better performance than iterating
+you can use the filter [`One`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/struct.One.html). This has significantly better performance than iterating
 over all trait impls.
 
 ```rust
