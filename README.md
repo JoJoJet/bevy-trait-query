@@ -70,7 +70,6 @@ struct Player(String);
 #[derive(Component)]
 enum Villager {
     Farmer,
-    Blacksmith,
     // ...
 }
 
