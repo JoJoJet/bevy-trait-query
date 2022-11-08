@@ -20,7 +20,7 @@
 //! }
 //! ```
 //!
-//! In order to to be useful within bevy, you'll want to be able to use it in queries.
+//! In order to to be useful within bevy, you'll want to be able to query for this trait.
 //!
 //! ```
 //! # use bevy::prelude::*;
