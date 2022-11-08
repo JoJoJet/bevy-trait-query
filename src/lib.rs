@@ -47,7 +47,7 @@
 //! ```
 //!
 //! Since Rust unfortunately lacks any kind of reflection, it is necessary to register each
-//! component with the trait when the app is first constructed.
+//! component with the trait when the app gets built.
 //!
 //! ```
 //! # use bevy::prelude::*;
@@ -91,20 +91,26 @@
 //! #     }
 //! # }
 //! #
-//! fn main() {
-//!     // We must import this trait in order to register our components.
-//!     // If we don't register them, they will be invisible to the game engine.
-//!     use bevy_trait_query::RegisterExt;
+//! struct MyPlugin;
 //!
-//!     App::new()
-//!         .add_plugins(DefaultPlugins)
-//!         // Register our components.
-//!         .register_component_as::<dyn Tooltip, Player>()
-//!         .register_component_as::<dyn Tooltip, Villager>()
-//!         .register_component_as::<dyn Tooltip, Monster>()
-//!         // Add systems...
-//!         # .update();
+//! impl Plugin for MyPlugin {
+//!     fn build(&self, app: &mut App) {
+//!         // We must import this trait in order to register our components.
+//!         // If we don't register them, they will be invisible to the game engine.
+//!         use bevy_trait_query::RegisterExt;
+//!
+//!         app
+//!             .register_component_as::<dyn Tooltip, Player>()
+//!             .register_component_as::<dyn Tooltip, Villager>()
+//!             .register_component_as::<dyn Tooltip, Monster>()
+//!             // Add systems...
+//!             # ;
+//!     }
 //! }
+//! #
+//! # fn main() {
+//! #     App::new().add_plugins(DefaultPlugins).add_plugin(MyPlugin).update();
+//! # }
 //! ```
 //!
 //! Unlike queries for concrete types, it's possible for an entity to have multiple components

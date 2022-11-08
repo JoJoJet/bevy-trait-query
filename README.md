@@ -63,7 +63,7 @@ bevy::ecs::system::assert_is_system(show_tooltips_system);
 ```
 
 Since Rust unfortunately lacks any kind of reflection, it is necessary to register each
-component with the trait when the app is first constructed.
+component with the trait when the app gets built.
 
 ```rust
 #[derive(Component)]
@@ -85,18 +85,20 @@ impl Tooltip for Player {
 
 // impl for Villager, Monster, etc.
 
-fn main() {
-    // We must import this trait in order to register our components.
-    // If we don't register them, they will be invisible to the game engine.
-    use bevy_trait_query::RegisterExt;
+struct MyPlugin;
 
-    App::new()
-        .add_plugins(DefaultPlugins)
-        // Register our components.
-        .register_component_as::<dyn Tooltip, Player>()
-        .register_component_as::<dyn Tooltip, Villager>()
-        .register_component_as::<dyn Tooltip, Monster>()
-        // Add systems...
+impl Plugin for MyPlugin {
+    fn build(&self, app: &mut App) {
+        // We must import this trait in order to register our components.
+        // If we don't register them, they will be invisible to the game engine.
+        use bevy_trait_query::RegisterExt;
+
+        app
+            .register_component_as::<dyn Tooltip, Player>()
+            .register_component_as::<dyn Tooltip, Villager>()
+            .register_component_as::<dyn Tooltip, Monster>()
+            // Add systems...
+    }
 }
 ```
 
