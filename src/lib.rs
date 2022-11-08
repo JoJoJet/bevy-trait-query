@@ -70,8 +70,6 @@
 //! #[derive(Component)]
 //! struct Monster;
 //!
-//! // Trait impl boilerplate omitted...
-//!
 //! impl Tooltip for Player {
 //!     // ...
 //! #     fn tooltip(&self) -> &str {

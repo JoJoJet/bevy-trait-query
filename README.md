@@ -81,8 +81,6 @@ enum Villager {
 #[derive(Component)]
 struct Monster;
 
-// Trait impl boilerplate omitted...
-
 impl Tooltip for Player {
     // ...
 }
