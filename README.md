@@ -79,7 +79,7 @@ struct Monster;
 
 // Trait implementations omitted for brevity...
 
-// Adds the logic for this game.
+// Contains the logic for this game.
 struct MyPlugin;
 
 impl Plugin for MyPlugin {
