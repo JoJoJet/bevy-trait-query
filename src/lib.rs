@@ -70,15 +70,14 @@
 //! #[derive(Component)]
 //! struct Monster;
 //!
-//! impl Tooltip for Player {
-//!     // ...
+//! // Trait implementations omitted for brevity...
+//!
+//! # impl Tooltip for Player {
 //! #     fn tooltip(&self) -> &str {
 //! #         &self.0
 //! #     }
-//! }
-//!
-//! // impl for Villager, Monster, etc.
-//!
+//! # }
+//! #
 //! # impl Tooltip for Villager {
 //! #     fn tooltip(&self) -> &str {
 //! #         "Villager"
@@ -91,6 +90,7 @@
 //! #     }
 //! # }
 //! #
+//! // Adds the logic for this game.
 //! struct MyPlugin;
 //!
 //! impl Plugin for MyPlugin {

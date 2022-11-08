@@ -79,12 +79,9 @@ enum Villager {
 #[derive(Component)]
 struct Monster;
 
-impl Tooltip for Player {
-    // ...
-}
+// Trait implementations omitted for brevity...
 
-// impl for Villager, Monster, etc.
-
+// Adds the logic for this game.
 struct MyPlugin;
 
 impl Plugin for MyPlugin {
