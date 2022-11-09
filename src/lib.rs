@@ -22,7 +22,7 @@
 //!
 //! In order to to be useful within bevy, you'll want to be able to query for this trait.
 //!
-//! ```
+//! ```ignore
 //! # use bevy::prelude::*;
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
@@ -178,7 +178,7 @@
 //! you can use the filter [`One`](crate::One). This has significantly better performance than iterating
 //! over all trait impls.
 //!
-//! ```
+//! ```ignore
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
 //! #
