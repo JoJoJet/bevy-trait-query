@@ -3,6 +3,27 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{parse_quote, ItemTrait, Result, TraitItem};
 
+/// When added to a trait declaration, generates the impls required to use that trait in queries.
+///
+/// # Poor use cases
+///
+/// You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
+///
+/// One naive use would be querying for a trait that looks something like:
+///
+/// ```
+/// trait Person {
+///     fn name(&self) -> &str;
+/// }
+/// ```
+///
+/// A far better way of expressing this would be to store the name in a separate component
+/// and query for that directly, making `Person` a simple marker component.
+///
+/// Trait queries are often the most *obvious* solution to a problem, but not always the best one.
+/// For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
+/// https://github.com/bevyengine/rfcs/pull/39.
+///
 /// # Note
 ///
 /// This will add the trait bound `'static` to the trait and all of its type parameters.
