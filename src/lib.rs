@@ -210,28 +210,6 @@
 //! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
 
-/// # Poor use cases
-///
-/// You should avoid using trait queries for very simple cases that can be solved with more direct solutions.
-///
-/// One naive use would be querying for a trait that looks something like:
-///
-/// ```
-/// trait Person {
-///     fn name(&self) -> &str;
-/// }
-/// ```
-///
-/// A far better way of expressing this would be to store the name in a separate component
-/// and query for that directly, making `Person` a simple marker component.
-///
-/// Trait queries are often the most *obvious* solution to a problem, but not always the best one.
-/// For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
-/// https://github.com/bevyengine/rfcs/pull/39.
-///
-/// This module only exists to hold documentation.
-pub mod poor_use_cases {}
-
 use std::cell::UnsafeCell;
 
 use bevy::{
