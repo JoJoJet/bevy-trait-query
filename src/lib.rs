@@ -1,82 +1,202 @@
-//! `bevy-trait-query` extends the capabilities of `bevy` by allowing you to query for components implementing a trait.
+//! Lets say you have a trait that you wanna implement for some of your components.
 //!
 //! ```
-//! use bevy::prelude::*;
+//! # use bevy::prelude::*;
 //! #
-//! # // Required to make the macro work, because cargo thinks
-//! # // we are in `bevy_trait_query` when compiling this example.
-//! # use bevy_trait_query::*;
-//!
-//! // Some trait that we wish to use in queries.
-//!
-//! #[bevy_trait_query::queryable]
+//! /// Components that display a message when hovered.
 //! pub trait Tooltip {
+//!     /// Text displayed when hovering over an entity with this trait.
 //!     fn tooltip(&self) -> &str;
 //! }
 //!
-//! // Define some custom components which will implement the trait.
-//!
 //! #[derive(Component)]
-//! struct Person(String);
-//!
-//! #[derive(Component)]
-//! struct Monster;
-//!
-//! impl Tooltip for Person {
-//!     fn tooltip(&self) -> &str {
-//!         &self.0
-//!     }
-//! }
+//! struct Monster; // ahhh scary
 //!
 //! impl Tooltip for Monster {
 //!     fn tooltip(&self) -> &str {
 //!         "Run!"
 //!     }
 //! }
+//! ```
 //!
-//! fn main() {
-//!     // We must import this trait in order to register our trait impls.
-//!     // If we don't register them, they will be invisible to the game engine.
-//!     use bevy_trait_query::RegisterExt;
+//! In order to be useful within bevy, you'll want to be able to query for this trait.
 //!
-//!     App::new()
-//!         // Register our components.
-//!         .register_component_as::<dyn Tooltip, Person>()
-//!         .register_component_as::<dyn Tooltip, Monster>()
-//!         .add_startup_system(setup)
-//!         .add_system(show_tooltips)
-//!         .add_system(show_tooltips_one)
-//!         # .update();
+//! ```ignore
+//! # use bevy::prelude::*;
+//! # // Required to make the macro work, because cargo thinks
+//! # // we are in `bevy_trait_query` when compiling this example.
+//! # use bevy_trait_query::*;
+//!
+//! // Just add this attribute...
+//! #[bevy_trait_query::queryable]
+//! pub trait Tooltip {
+//!     fn tooltip(&self) -> &str;
 //! }
 //!
-//! fn setup(mut commands: Commands) {
-//!     commands.spawn(Person("Fourier".to_owned()));
-//!     commands.spawn(Monster);
+//! // ...and now you can use your trait in queries.
+//! fn show_tooltips_system(
+//!     tooltips: Query<&dyn Tooltip>,
+//!     // ...
+//! ) {
+//!     // ...
 //! }
+//! # bevy::ecs::system::assert_is_system(show_tooltips_system);
+//! ```
+//!
+//! Since Rust unfortunately lacks any kind of reflection, it is necessary to register each
+//! component with the trait when the app gets built.
+//!
+//! ```
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
+//! #[derive(Component)]
+//! struct Player(String);
+//!
+//! #[derive(Component)]
+//! enum Villager {
+//!     Farmer,
+//!     // ...
+//! }
+//!
+//! #[derive(Component)]
+//! struct Monster;
+//!
+//! // Trait implementations omitted for brevity...
+//!
+//! # impl Tooltip for Player {
+//! #     fn tooltip(&self) -> &str {
+//! #         &self.0
+//! #     }
+//! # }
+//! #
+//! # impl Tooltip for Villager {
+//! #     fn tooltip(&self) -> &str {
+//! #         "Villager"
+//! #     }
+//! # }
+//! #
+//! # impl Tooltip for Monster {
+//! #     fn tooltip(&self) -> &str {
+//! #         "Run!"
+//! #     }
+//! # }
+//! #
+//! // Contains the logic for this game.
+//! struct MyPlugin;
+//!
+//! impl Plugin for MyPlugin {
+//!     fn build(&self, app: &mut App) {
+//!         // We must import this trait in order to register our components.
+//!         // If we don't register them, they will be invisible to the game engine.
+//!         use bevy_trait_query::RegisterExt;
+//!
+//!         app
+//!             .register_component_as::<dyn Tooltip, Player>()
+//!             .register_component_as::<dyn Tooltip, Villager>()
+//!             .register_component_as::<dyn Tooltip, Monster>()
+//!             // Add systems...
+//!             # ;
+//!     }
+//! }
+//! #
+//! # fn main() {
+//! #     App::new().add_plugins(DefaultPlugins).add_plugin(MyPlugin).update();
+//! # }
+//! ```
+//!
+//! Unlike queries for concrete types, it's possible for an entity to have multiple components
+//! that match a trait query.
+//!
+//! ```
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
+//! # #[derive(Component)]
+//! # struct Player(String);
+//! #
+//! # #[derive(Component)]
+//! # struct Monster;
+//! #
+//! # impl Tooltip for Player {
+//! #     fn tooltip(&self) -> &str {
+//! #         &self.0
+//! #     }
+//! # }
+//! #
+//! # impl Tooltip for Monster {
+//! #     fn tooltip(&self) -> &str {
+//! #         "Run!"
+//! #     }
+//! # }
+//! #
+//! # fn main() {
+//! #     App::new()
+//! #         .add_plugins(DefaultPlugins)
+//! #         .register_component_as::<dyn Tooltip, Player>()
+//! #         .register_component_as::<dyn Tooltip, Monster>()
+//! #         .add_startup_system(setup)
+//! #         .update();
+//! # }
+//! #
+//! # fn setup(mut commands: Commands) {
+//! #     commands.spawn(Player("Fourier".to_owned()));
+//! #     commands.spawn(Monster);
+//! # }
 //!
 //! fn show_tooltips(
-//!     // Query for entities with components implementing the trait.
-//!     query: Query<&dyn Tooltip>,
+//!     tooltips: Query<&dyn Tooltip>,
+//!     // ...
 //! ) {
-//!     for entity_tooltips in &query {
-//!         // It's possible for an entity to have more than one component implementing the trait,
-//!         // so we must iterate over all possible components for each entity.
+//!     // Iterate over each entity that has tooltips.
+//!     for entity_tooltips in &tooltips {
+//!         // Iterate over each component implementing `Tooltip` for the current entity.
 //!         for tooltip in entity_tooltips {
-//!             println!("Hovering: {}", tooltip.tooltip());
+//!             println!("Tooltip: {}", tooltip.tooltip());
 //!         }
 //!     }
-//! }
 //!
-//! use bevy_trait_query::One;
-//! fn show_tooltips_one(
-//!     // If you expect to only have one trait impl per entity, you should use the `One` filter.
-//!     // This is significantly more efficient than iterating over all trait impls.
-//!     query: Query<One<&dyn Tooltip>>,
-//! ) {
-//!     for tooltip in &query {
-//!         println!("Hovering: {}", tooltip.tooltip());
+//!     // If you instead just want to iterate over all tooltips, you can do:
+//!     for tooltip in tooltips.iter().flatten() {
+//!         println!("Tooltip: {}", tooltip.tooltip());
 //!     }
 //! }
+//! ```
+//!
+//! Alternatively, if you expect to only have component implementing the trait for each entity,
+//! you can use the filter [`One`](crate::One). This has significantly better performance than iterating
+//! over all trait impls.
+//!
+//! ```ignore
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
+//! use bevy_trait_query::One;
+//!
+//! fn show_tooltips(
+//!     tooltips: Query<One<&dyn Tooltip>>,
+//!     // ...
+//! ) {
+//!     for tooltip in &tooltips {
+//!         println!("Tooltip: {}", tooltip.tooltip());
+//!     }
+//! }
+//! # bevy::ecs::system::assert_is_system(show_tooltips);
 //! ```
 //!
 //! # Performance
