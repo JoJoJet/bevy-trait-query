@@ -9,9 +9,8 @@
 //!     fn tooltip(&self) -> &str;
 //! }
 //!
-//! // ahhh scary
 //! #[derive(Component)]
-//! struct Monster;
+//! struct Monster; // ahhh scary
 //!
 //! impl Tooltip for Monster {
 //!     fn tooltip(&self) -> &str {
