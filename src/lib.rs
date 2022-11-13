@@ -58,7 +58,7 @@
 //! #[derive(Component)]
 //! struct Monster;
 //!
-//! // ...trait implementations omitted for brevity...
+//! /* ...trait implementations omitted for brevity... */
 //!
 //! # impl Tooltip for Player {
 //! #     fn tooltip(&self) -> &str {
