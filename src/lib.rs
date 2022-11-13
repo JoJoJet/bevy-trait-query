@@ -78,10 +78,9 @@
 //! #     }
 //! # }
 //!
-//! // Contains the logic for this game.
-//! struct MyPlugin;
+//! struct TooltipPlugin;
 //!
-//! impl Plugin for MyPlugin {
+//! impl Plugin for TooltipPlugin {
 //!     fn build(&self, app: &mut App) {
 //!         // We must import this trait in order to register our components.
 //!         // If we don't register them, they will be invisible to the game engine.
@@ -97,7 +96,7 @@
 //! # fn show_tooltips() {}
 //! #
 //! # fn main() {
-//! #     App::new().add_plugins(DefaultPlugins).add_plugin(MyPlugin).update();
+//! #     App::new().add_plugins(DefaultPlugins).add_plugin(TooltipPlugin).update();
 //! # }
 //! ```
 //!

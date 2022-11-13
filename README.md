@@ -69,10 +69,9 @@ struct Monster;
 // ...trait implementations omitted for brevity...
 
 
-// Contains the logic for this game.
-struct MyPlugin;
+struct TooltipPlugin;
 
-impl Plugin for MyPlugin {
+impl Plugin for TooltipPlugin {
     fn build(&self, app: &mut App) {
         // We must import this trait in order to register our components.
         // If we don't register them, they will be invisible to the game engine.
@@ -82,7 +81,7 @@ impl Plugin for MyPlugin {
             .register_component_as::<dyn Tooltip, Player>()
             .register_component_as::<dyn Tooltip, Villager>()
             .register_component_as::<dyn Tooltip, Monster>()
-            .add_system(show_tooltips); // spoilers
+            .add_system(show_tooltips);
     }
 }
 ```
