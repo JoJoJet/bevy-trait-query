@@ -29,15 +29,6 @@ pub trait Tooltip {
     /// Text displayed when hovering over an entity with this trait.
     fn tooltip(&self) -> &str;
 }
-
-#[derive(Component)]
-struct Monster; // ahhh scary
-
-impl Tooltip for Monster {
-    fn tooltip(&self) -> &str {
-        "Run!"
-    }
-}
 ```
 
 In order to be useful within bevy, you'll want to be able to query for this trait.
@@ -75,12 +66,11 @@ enum Villager {
 #[derive(Component)]
 struct Monster;
 
-// Trait implementations omitted for brevity...
+/* ...trait implementations omitted for brevity... */
 
-// Contains the logic for this game.
-struct MyPlugin;
+struct TooltipPlugin;
 
-impl Plugin for MyPlugin {
+impl Plugin for TooltipPlugin {
     fn build(&self, app: &mut App) {
         // We must import this trait in order to register our components.
         // If we don't register them, they will be invisible to the game engine.
@@ -90,7 +80,7 @@ impl Plugin for MyPlugin {
             .register_component_as::<dyn Tooltip, Player>()
             .register_component_as::<dyn Tooltip, Villager>()
             .register_component_as::<dyn Tooltip, Monster>()
-            // Add systems...
+            .add_system(show_tooltips);
     }
 }
 ```
