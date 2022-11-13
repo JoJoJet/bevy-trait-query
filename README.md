@@ -68,7 +68,6 @@ struct Monster;
 
 // ...trait implementations omitted for brevity...
 
-
 struct TooltipPlugin;
 
 impl Plugin for TooltipPlugin {

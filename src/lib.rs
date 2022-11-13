@@ -77,7 +77,7 @@
 //! #         "Run!"
 //! #     }
 //! # }
-//!
+//! #
 //! struct TooltipPlugin;
 //!
 //! impl Plugin for TooltipPlugin {
