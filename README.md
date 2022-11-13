@@ -66,7 +66,7 @@ enum Villager {
 #[derive(Component)]
 struct Monster;
 
-// ...trait implementations omitted for brevity...
+/* ...trait implementations omitted for brevity... */
 
 struct TooltipPlugin;
 
