@@ -58,7 +58,7 @@
 //! #[derive(Component)]
 //! struct Monster;
 //!
-//! // Trait implementations omitted for brevity...
+//! // ...trait implementations omitted for brevity...
 //!
 //! # impl Tooltip for Player {
 //! #     fn tooltip(&self) -> &str {
@@ -77,7 +77,7 @@
 //! #         "Run!"
 //! #     }
 //! # }
-//! #
+//!
 //! // Contains the logic for this game.
 //! struct MyPlugin;
 //!

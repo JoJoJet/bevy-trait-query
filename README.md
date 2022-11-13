@@ -66,7 +66,8 @@ enum Villager {
 #[derive(Component)]
 struct Monster;
 
-// Trait implementations omitted for brevity...
+// ...trait implementations omitted for brevity...
+
 
 // Contains the logic for this game.
 struct MyPlugin;
