@@ -5,6 +5,7 @@
 ### Added
 
 * Added the `#[queryable]` macro, which lets you add query support to a trait declaration.
+* Added support for generic traits.
 * Added `&dyn Trait` and `&mut dyn Trait` as queries, which use the `All<>` behavior.
 * Added iterator methods to `All<>` query items.
 
