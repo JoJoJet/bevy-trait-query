@@ -29,15 +29,6 @@ pub trait Tooltip {
     /// Text displayed when hovering over an entity with this trait.
     fn tooltip(&self) -> &str;
 }
-
-#[derive(Component)]
-struct Monster; // ahhh scary
-
-impl Tooltip for Monster {
-    fn tooltip(&self) -> &str {
-        "Run!"
-    }
-}
 ```
 
 In order to be useful within bevy, you'll want to be able to query for this trait.
