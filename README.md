@@ -82,7 +82,7 @@ impl Plugin for MyPlugin {
             .register_component_as::<dyn Tooltip, Player>()
             .register_component_as::<dyn Tooltip, Villager>()
             .register_component_as::<dyn Tooltip, Monster>()
-            // Add systems...
+            .add_system(show_tooltips); // spoilers
     }
 }
 ```
