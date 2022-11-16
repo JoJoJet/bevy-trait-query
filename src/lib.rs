@@ -207,6 +207,7 @@ use bevy::{
         component::{ComponentId, ComponentTicks, StorageType},
         query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
         storage::{ComponentSparseSet, SparseSets, Table},
+        world::World,
     },
     prelude::*,
     ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref},
