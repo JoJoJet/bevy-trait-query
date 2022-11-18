@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 0.1.1
+
+### Fixed
+
+* Fixed hygiene for the `#[queryable]` macro.
+
 ## Version 0.1 (Bevy 0.9)
 
 ### Added
