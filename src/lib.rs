@@ -580,7 +580,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
                     meta,
-                }
+                };
+                return;
             }
         }
         // At least one of the components must be present in the table.
