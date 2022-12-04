@@ -355,10 +355,13 @@ pub mod imports {
         archetype::{Archetype, ArchetypeComponentId},
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
+        query::{
+            Access, Added, Changed, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery,
+        },
         storage::Table,
         world::World,
     };
+    pub use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 }
 
 #[doc(hidden)]
@@ -385,10 +388,12 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
             meta: registry.meta.clone().into_boxed_slice(),
         }
     }
+
     #[inline]
     fn matches_component_set_any(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.components.iter().copied().any(set_contains_id)
     }
+
     #[inline]
     fn matches_component_set_one(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         let match_count = self
