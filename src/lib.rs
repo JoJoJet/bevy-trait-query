@@ -535,7 +535,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -738,7 +738,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1148,7 +1148,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1267,7 +1267,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
