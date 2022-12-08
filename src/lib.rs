@@ -647,6 +647,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+
     #[inline]
     fn matches_component_set(
         state: &Self::State,

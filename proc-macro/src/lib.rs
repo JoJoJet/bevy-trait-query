@@ -377,20 +377,11 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
         }
 
-        #[doc(hidden)]
-        pub struct #trait_object_fetch_name<'w, '__a> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-            marker: PhantomData<&'__a #trait_object>,
-            sparse_set: Option<&'w ComponentSparseSet>,
-            last_change_tick: u32,
-            change_tick: u32,
-        }
-
         unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for Added<&'__a #trait_object>
         #where_clause
         {
             type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
-            type Fetch<'__w> = #my_crate::ReadAllTraitsFetch<'__w, #trait_object>;
+            type Fetch<'__w> = #my_crate::change_detection::TraitAddedFetch<'__w, #trait_object>;
             type ReadOnly = Self;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
