@@ -377,7 +377,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
         }
 
-        unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for Added<&'__a #trait_object>
+        unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for #imports::Added<&'__a #trait_object>
         #where_clause
         {
             type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
@@ -485,7 +485,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
         }
 
-        unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for Changed<&'__a #trait_object>
+        unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for #imports::Changed<&'__a #trait_object>
         #where_clause
         {
             type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
