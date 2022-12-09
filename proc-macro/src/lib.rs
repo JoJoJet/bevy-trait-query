@@ -381,7 +381,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         #where_clause
         {
             type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
-            type Fetch<'__w> = #my_crate::change_detection::TraitAddedFetch<'__w, #trait_object>;
+            type Fetch<'__w> = #my_crate::change_detection::ChangeDetectionFetch<'__w, #trait_object>;
             type ReadOnly = Self;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
@@ -392,7 +392,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 last_change_tick: u32,
                 change_tick: u32,
             ) -> Self::Fetch<'w> {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::init_fetch(
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::init_fetch(
                     world,
                     state,
                     last_change_tick,
@@ -404,7 +404,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             unsafe fn clone_fetch<'w>(
                 fetch: &Self::Fetch<'w>,
             ) -> Self::Fetch<'w> {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
             }
 
             #[inline]
@@ -414,9 +414,9 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 item
             }
 
-            const IS_DENSE: bool = <#my_crate::All<&#trait_object> as #imports::WorldQuery>::IS_DENSE;
+            const IS_DENSE: bool = <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::IS_DENSE;
             const IS_ARCHETYPAL: bool =
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::IS_ARCHETYPAL;
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::IS_ARCHETYPAL;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -425,7 +425,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 archetype: &'w #imports::Archetype,
                 tables: &'w #imports::Table,
             ) {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::set_archetype(
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::set_archetype(
                     fetch, state, archetype, tables,
                 );
             }
@@ -436,7 +436,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 state: &Self::State,
                 table: &'w #imports::Table,
             ) {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::set_table(fetch, state, table);
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::set_table(fetch, state, table);
             }
 
             #[inline]
@@ -445,7 +445,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 entity: #imports::Entity,
                 table_row: usize,
             ) -> Self::Item<'w> {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::fetch(
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::fetch(
                     fetch,
                     entity,
                     table_row,
@@ -457,7 +457,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 state: &Self::State,
                 access: &mut #imports::FilteredAccess<#imports::ComponentId>,
             ) {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::update_component_access(
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::update_component_access(
                     state, access,
                 );
             }
@@ -468,12 +468,12 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 archetype: &#imports::Archetype,
                 access: &mut #imports::Access<#imports::ArchetypeComponentId>,
             ) {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
             }
 
             #[inline]
             fn init_state(world: &mut #imports::World) -> Self::State {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::init_state(world)
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::init_state(world)
             }
 
             #[inline]
@@ -481,7 +481,115 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 state: &Self::State,
                 set_contains_id: &impl Fn(#imports::ComponentId) -> bool,
             ) -> bool {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::matches_component_set(state, set_contains_id)
+                <#my_crate::change_detection::TraitAdded<&#trait_object> as #imports::WorldQuery>::matches_component_set(state, set_contains_id)
+            }
+        }
+
+        unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for Changed<&'__a #trait_object>
+        #where_clause
+        {
+            type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
+            type Fetch<'__w> = #my_crate::change_detection::ChangeDetectionFetch<'__w, #trait_object>;
+            type ReadOnly = Self;
+            type State = #my_crate::TraitQueryState<#trait_object>;
+
+            #[inline]
+            unsafe fn init_fetch<'w>(
+                world: &'w #imports::World,
+                state: &Self::State,
+                last_change_tick: u32,
+                change_tick: u32,
+            ) -> Self::Fetch<'w> {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::init_fetch(
+                    world,
+                    state,
+                    last_change_tick,
+                    change_tick,
+                )
+            }
+
+            #[inline]
+            unsafe fn clone_fetch<'w>(
+                fetch: &Self::Fetch<'w>,
+            ) -> Self::Fetch<'w> {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
+            }
+
+            #[inline]
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: Self::Item<'wlong>,
+            ) -> Self::Item<'wshort> {
+                item
+            }
+
+            const IS_DENSE: bool = <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::IS_DENSE;
+            const IS_ARCHETYPAL: bool =
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::IS_ARCHETYPAL;
+
+            #[inline]
+            unsafe fn set_archetype<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                archetype: &'w #imports::Archetype,
+                tables: &'w #imports::Table,
+            ) {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::set_archetype(
+                    fetch, state, archetype, tables,
+                );
+            }
+
+            #[inline]
+            unsafe fn set_table<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                table: &'w #imports::Table,
+            ) {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::set_table(fetch, state, table);
+            }
+
+            #[inline]
+            unsafe fn fetch<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                entity: #imports::Entity,
+                table_row: usize,
+            ) -> Self::Item<'w> {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::fetch(
+                    fetch,
+                    entity,
+                    table_row,
+                )
+            }
+
+            #[inline]
+            fn update_component_access(
+                state: &Self::State,
+                access: &mut #imports::FilteredAccess<#imports::ComponentId>,
+            ) {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::update_component_access(
+                    state, access,
+                );
+            }
+
+            #[inline]
+            fn update_archetype_component_access(
+                state: &Self::State,
+                archetype: &#imports::Archetype,
+                access: &mut #imports::Access<#imports::ArchetypeComponentId>,
+            ) {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
+            }
+
+            #[inline]
+            fn init_state(world: &mut #imports::World) -> Self::State {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::init_state(world)
+            }
+
+            #[inline]
+            fn matches_component_set(
+                state: &Self::State,
+                set_contains_id: &impl Fn(#imports::ComponentId) -> bool,
+            ) -> bool {
+                <#my_crate::change_detection::TraitChanged<&#trait_object> as #imports::WorldQuery>::matches_component_set(state, set_contains_id)
             }
         }
     };
