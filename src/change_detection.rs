@@ -1,6 +1,16 @@
-use bevy::ecs::component::ComponentTicks;
+use crate::{TraitImplRegistry, TraitQuery, TraitQueryState};
+use bevy::ecs::archetype::{Archetype, ArchetypeComponentId};
+use bevy::ecs::component::{ComponentId, ComponentTicks};
 use bevy::prelude::DetectChanges;
+use std::cell::UnsafeCell;
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+
+use bevy::ecs::entity::Entity;
+use bevy::ecs::query::{Access, FilteredAccess, ReadOnlyWorldQuery, WorldQuery};
+use bevy::ecs::storage::{ComponentSparseSet, SparseSets, Table};
+use bevy::ecs::world::World;
+use bevy::ptr::{ThinSlicePtr, UnsafeCellDeref};
 
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T: ?Sized> {
@@ -102,4 +112,10 @@ impl<T: ?Sized> AsMut<T> for Mut<'_, T> {
     fn as_mut(&mut self) -> &mut T {
         self.deref_mut()
     }
+}
+
+pub(crate) enum ChangeDetectionMode {
+    None,
+    Added,
+    Changed
 }
