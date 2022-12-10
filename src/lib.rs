@@ -231,8 +231,6 @@ pub mod change_detection;
 pub mod multiple_read;
 pub mod multiple_write;
 pub mod one;
-pub(crate) mod singular_read;
-pub(crate) mod singular_write;
 
 pub use all::*;
 pub use multiple_read::*;
