@@ -1,4 +1,4 @@
-use crate::{debug_unreachable, TraitImplRegistry, TraitQuery, TraitQueryState};
+use crate::{TraitImplRegistry, TraitQuery, TraitQueryState};
 use bevy::ecs::archetype::{Archetype, ArchetypeComponentId};
 use bevy::ecs::component::{ComponentId, ComponentTicks};
 use bevy::prelude::DetectChanges;
