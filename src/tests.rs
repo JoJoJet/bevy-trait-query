@@ -188,6 +188,106 @@ fn age_up_not(mut q: Query<&mut dyn Person, Without<Fem>>) {
     }
 }
 
+#[test]
+fn added_filter() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut stage = SystemStage::parallel();
+    stage
+        .add_system(print_added_info)
+        .add_system(age_up_fem.after(print_added_info))
+        .add_system(age_up_not.after(print_added_info));
+
+    stage.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    stage.run(&mut world);
+
+    stage.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Added people:",
+            "Henry: 22",
+            "",
+            "Added people:",
+            "Reginald: 27",
+            "",
+            "Added people:",
+            "",
+        ]
+    );
+}
+
+// Prints the name and age of every newly added `Person`.
+fn print_added_info(people: Query<AddedOne<&dyn Person>>, mut output: ResMut<Output>) {
+    output.0.push("Added people:".to_string());
+    for person in (&people).into_iter().flatten() {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn changed_filter() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut stage = SystemStage::parallel();
+    stage
+        .add_system(print_changed_info)
+        .add_system(age_up_fem.after(print_changed_info));
+
+    stage.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    stage.run(&mut world);
+
+    stage.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Changed people:",
+            "Henry: 22",
+            "",
+            "Changed people:",
+            "Reginald: 27",
+            "",
+            "Changed people:",
+            "Reginald: 28",
+            ""
+        ]
+    );
+}
+
+// Prints the name and age of every `Person` whose info has changed in some way
+fn print_changed_info(people: Query<ChangedOne<&dyn Person>>, mut output: ResMut<Output>) {
+    output.0.push("Changed people:".to_string());
+    for person in (&people).into_iter().flatten() {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
 #[queryable]
 pub trait Messages {
     fn send(&mut self, _: &dyn Display);
