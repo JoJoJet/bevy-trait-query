@@ -189,11 +189,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for TraitAdded<'a, Trait>
                 .iter()
                 .filter_map(|component| fetch.sparse_sets.get(*component)),
         );
-
-        if fetch.table_ticks.is_empty() || fetch.sparse_components.is_empty() {
-            // At least one of the components must be present in the table or sparse set.
-            debug_unreachable()
-        }
     }
 
     #[inline]
@@ -336,11 +331,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for TraitChanged<'a, Trai
                 .iter()
                 .filter_map(|component| fetch.sparse_sets.get(*component)),
         );
-
-        if fetch.table_ticks.is_empty() || fetch.sparse_components.is_empty() {
-            // At least one of the components must be present in the table or sparse set.
-            debug_unreachable()
-        }
     }
 
     #[inline]
