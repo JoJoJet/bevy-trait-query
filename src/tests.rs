@@ -1,4 +1,5 @@
 use super::*;
+use crate::change_detection::TraitAdded;
 use std::fmt::{Debug, Display};
 
 #[derive(Resource, Default)]
@@ -226,7 +227,10 @@ fn added_test() {
 }
 
 // Prints the name and age of every newly added `Person`.
-fn print_added_info(people: Query<&dyn Person, Added<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_added_info(
+    people: Query<&dyn Person, TraitAdded<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
     output.0.push("Added people:".to_string());
     for all in &people {
         for person in all {
