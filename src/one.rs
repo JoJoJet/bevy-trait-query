@@ -16,6 +16,8 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     // After `Fetch::set_archetype` or `set_table` has been called,
     // this will carry the component data and metadata for the first trait impl found in the archetype.
     storage: ReadStorage<'w, Trait>,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 enum ReadStorage<'w, Trait: ?Sized> {
