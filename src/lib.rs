@@ -1232,7 +1232,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
 /// SAFETY: We only access the components registered in the trait registry.
 /// This is known to match the set of components in the `DynQueryState`,
-/// which is used to mfatch archetypes and register world access.
+/// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
     type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
