@@ -228,13 +228,9 @@ mod tests;
 
 pub mod all;
 pub mod change_detection;
-pub mod multiple_read;
-pub mod multiple_write;
 pub mod one;
 
 pub use all::*;
-pub use multiple_read::*;
-pub use multiple_write::*;
 pub use one::*;
 
 /// Marker for traits that can be used in queries.
