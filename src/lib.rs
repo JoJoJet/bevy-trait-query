@@ -164,11 +164,7 @@
 //! ```
 //!
 //! Alternatively, if you expect to only have component implementing the trait for each entity,
-<<<<<<< HEAD
 //! you can use the filter [`One`](crate::one::One). This has significantly better performance than iterating
-=======
-//! you can use the filter [`One`](One). This has significantly better performance than iterating
->>>>>>> b61cd8d (Code reorganization.)
 //! over all trait impls.
 //!
 //! ```ignore
@@ -232,19 +228,9 @@ mod tests;
 
 pub mod all;
 pub mod change_detection;
-<<<<<<< HEAD
 pub mod one;
 
 pub use all::*;
-=======
-pub mod multiple_read;
-pub mod multiple_write;
-pub mod one;
-
-pub use all::*;
-pub use multiple_read::*;
-pub use multiple_write::*;
->>>>>>> b61cd8d (Code reorganization.)
 pub use one::*;
 
 /// Marker for traits that can be used in queries.
