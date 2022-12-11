@@ -164,7 +164,7 @@
 //! ```
 //!
 //! Alternatively, if you expect to only have component implementing the trait for each entity,
-//! you can use the filter [`One`](One). This has significantly better performance than iterating
+//! you can use the filter [`One`](crate::One). This has significantly better performance than iterating
 //! over all trait impls.
 //!
 //! ```ignore
