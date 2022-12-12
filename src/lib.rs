@@ -164,7 +164,7 @@
 //! ```
 //!
 //! Alternatively, if you expect to only have component implementing the trait for each entity,
-//! you can use the filter [`One`](crate::One). This has significantly better performance than iterating
+//! you can use the filter [`One`](crate::one::One). This has significantly better performance than iterating
 //! over all trait impls.
 //!
 //! ```ignore
@@ -188,21 +188,6 @@
 //! }
 //! # bevy::ecs::system::assert_is_system(show_tooltips);
 //! ```
-//!
-//! Trait queries support basic change detection filtration. So to get all the components that
-//! implement the target trait, and have also changed in some way since the last tick, you can:
-//! ```ignore
-//! fn show_tooltips(
-//!     tooltips: Query<ChangedAll<&dyn Tooltip>>
-//!     // ...
-//! ) {
-//!     for tooltip in &tooltips {
-//!         println!("changed tool tips: {}", tooltip.tooltip());
-//!     }
-//! }
-//! ```
-//!
-//! Similarly, there exist `ChangedOne`, `AddedOne`, and `AddedAll`.
 //!
 //! # Performance
 //!
