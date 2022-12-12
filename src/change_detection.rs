@@ -1,6 +1,6 @@
+use bevy::ecs::component::ComponentTicks;
+use bevy::prelude::DetectChanges;
 use std::ops::{Deref, DerefMut};
-
-use bevy::{ecs::component::ComponentTicks, prelude::DetectChanges};
 
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T: ?Sized> {
