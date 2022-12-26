@@ -162,7 +162,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadTableTraitsIter<'a,
         // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE!: we know that the table row is a valid index???
         let column_ticks = unsafe { column.get_ticks_unchecked(self.table_row).deref() };
         column_ticks
-            .is_added(self.last_change_tick, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
             .then(|| unsafe {
                 // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE! Unlike in the write case, we do not have
                 // exclusive access! We have shared access to the entire column and ticks? This might be
