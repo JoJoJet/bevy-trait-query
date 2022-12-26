@@ -193,16 +193,50 @@
 //! implement the target trait, and have also changed in some way since the last tick, you can:
 //! ```ignore
 //! fn show_tooltips(
-//!     tooltips: Query<ChangedAll<&dyn Tooltip>>
+//!     tooltips_query: Query<ChangedAll<&dyn Tooltip>>
 //!     // ...
 //! ) {
-//!     for tooltip in &tooltips {
-//!         println!("changed tool tips: {}", tooltip.tooltip());
+//!     // Iterate over each entity that has tooltips, which have *changed* since the last tick
+//!     for entity_tooltips in &tooltips_query {
+//!         // Iterate over each component implementing `Tooltip` for the current entity.
+//!         for tooltip in entity_tooltips {
+//!             println!("Changed Tooltip: {}", tooltip.tooltip());
+//!         }
 //!     }
 //! }
 //! ```
 //!
-//! Similarly, there exist `ChangedOne`, `AddedOne`, and `AddedAll`.
+//! Similar to `ChangedAll`, we have `AddedAll`.
+//!
+//! If you know you have only one component that implements the target trait, you can use
+//! `ChangedOne` (or `AddedOne`) filters, which returns an `Option`al entity if change was detected:
+//! ```ignore
+//! fn show_tooltips(
+//!     tooltips_query: Query<ChangedOne<&dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has one tooltip implementing component
+//!     for maybe_changed_tooltip in &tooltips_query {
+//!         if let Some(changed_tooltip) = maybe_changed_tooltip {
+//!             println!("Changed Tooltip: {}", tooltip.tooltip());
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! or you can use `OneAddedFilter` or `OneChangedFilter` which behave more like the typical
+//! `bevy` `Added/Changed` filters:
+//! ```ignore
+//! fn show_tooltips(
+//!     tooltips_query: Query<One<&dyn Tooltip>, OneChangedFilter<&dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has one tooltip implementing component that has also changed
+//!     for changed_tooltip in &tooltips_query {
+//!         println!("Changed Tooltip: {}", tooltip.tooltip());
+//!     }
+//! }
+//! ```
 //!
 //! # Performance
 //!
