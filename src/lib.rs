@@ -189,6 +189,56 @@
 //! # bevy::ecs::system::assert_is_system(show_tooltips);
 //! ```
 //!
+//! Trait queries support basic change detection filtration. So to get all the components that
+//! implement the target trait, and have also changed in some way since the last tick, you can:
+//! ```ignore
+//! fn show_tooltips(
+//!     tooltips_query: Query<ChangedAll<&dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has tooltips, which have *changed* since the last tick
+//!     for entity_tooltips in &tooltips_query {
+//!         // Iterate over each component implementing `Tooltip` for the current entity.
+//!         for tooltip in entity_tooltips {
+//!             println!("Changed Tooltip: {}", tooltip.tooltip());
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! Similar to `ChangedAll`, we have `AddedAll`.
+//!
+//! If you know you have only one component that implements the target trait, you can use
+//! `ChangedOne` (or `AddedOne`) filters, which returns an `Option`al entity if change was detected:
+//! ```ignore
+//! fn show_tooltips(
+//!     tooltips_query: Query<ChangedOne<&dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has one tooltip implementing component
+//!     for maybe_changed_tooltip in &tooltips_query {
+//!         if let Some(changed_tooltip) = maybe_changed_tooltip {
+//!             println!("Changed Tooltip: {}", tooltip.tooltip());
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! or you can use `OneAddedFilter` or `OneChangedFilter` which behave more like the typical
+//! `bevy` `Added/Changed` filters:
+//! ```ignore
+//! fn show_tooltips(
+//!     tooltips_query: Query<One<&dyn Tooltip>, OneChangedFilter<dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has one tooltip implementing component that has also changed
+//!     for changed_tooltip in &tooltips_query {
+//!         println!("Changed Tooltip: {}", tooltip.tooltip());
+//!     }
+//! }
+//! ```
+//! Note in the above example how `OneChangedFilter` does *not* take a reference to the trait object!
+//!
 //! # Performance
 //!
 //! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
