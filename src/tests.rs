@@ -56,15 +56,15 @@ fn one1() {
     world.spawn((Human("Garbanzo".to_owned(), 14), Fem));
     world.spawn(Dolphin(27));
 
-    let mut stage = SystemStage::parallel();
-    stage
+    let mut schedule = Schedule::new();
+    schedule
         .add_system(print_info)
         .add_system(age_up.after(print_info))
         .add_system(change_name.after(print_info))
         .add_system(pluralize.after(print_info));
 
-    stage.run(&mut world);
-    stage.run(&mut world);
+    schedule.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -125,14 +125,14 @@ fn all1() {
     world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
     world.spawn(Dolphin(27));
 
-    let mut stage = SystemStage::parallel();
-    stage
+    let mut schedule = Schedule::new();
+    schedule
         .add_system(print_all_info)
         .add_system(age_up_fem.after(print_all_info))
         .add_system(age_up_not.after(print_all_info));
 
-    stage.run(&mut world);
-    stage.run(&mut world);
+    schedule.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -230,13 +230,13 @@ fn sparse1() {
     world.spawn(RecA(vec![]));
     world.spawn((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
 
-    let mut stage = SystemStage::parallel();
-    stage
+    let mut schedule = Schedule::new();
+    schedule
         .add_system(print_messages)
         .add_system(spawn_sparse.after(print_messages));
 
-    stage.run(&mut world);
-    stage.run(&mut world);
+    schedule.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -288,8 +288,8 @@ fn multi_register() {
     world.spawn((RecA(vec![]), RecB(vec![])));
     world.spawn(RecB(vec![]));
 
-    let mut stage = SystemStage::parallel();
-    stage.add_system(count_impls);
+    let mut schedule = Schedule::new();
+    schedule.add_system(count_impls);
 
     fn count_impls(q: Query<&dyn Messages>, mut output: ResMut<Output>) {
         for traits in &q {
@@ -299,7 +299,7 @@ fn multi_register() {
         }
     }
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
