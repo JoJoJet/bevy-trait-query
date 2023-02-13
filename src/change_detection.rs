@@ -1,4 +1,4 @@
-use bevy::ecs::component::{ComponentTicks, Tick};
+use bevy::ecs::component::Tick;
 use bevy::prelude::*;
 use std::ops::{Deref, DerefMut};
 
@@ -54,7 +54,7 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
         self.value
     }
 
-    fn set_if_neq<Target>(&mut self, value: Target)
+    fn set_if_neq<Target>(&mut self, _: Target)
     where
         Self: Deref<Target = Target> + DerefMut<Target = Target>,
         Target: PartialEq,
