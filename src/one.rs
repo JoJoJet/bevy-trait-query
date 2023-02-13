@@ -1,6 +1,6 @@
 use crate::change_detection::{Mut, Ticks};
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
-use bevy::ecs::component::{ComponentId, ComponentTicks};
+use bevy::ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{ComponentSparseSet, SparseSets, TableRow};
