@@ -184,8 +184,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
@@ -356,8 +357,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Mut<'w, Trait> {
+        let table_row = table_row.index();
         let dyn_ctor;
         let (ptr, component_ticks) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
