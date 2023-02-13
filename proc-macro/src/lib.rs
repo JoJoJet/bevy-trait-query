@@ -218,7 +218,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: #imports::Entity,
-                table_row: usize,
+                table_row: #imports::TableRow,
             ) -> Self::Item<'w> {
                 <#my_crate::All<&#trait_object> as #imports::WorldQuery>::fetch(
                     fetch,
@@ -326,7 +326,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: #imports::Entity,
-                table_row: usize,
+                table_row: #imports::TableRow,
             ) -> Self::Item<'w> {
                 <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::fetch(
                     fetch,
