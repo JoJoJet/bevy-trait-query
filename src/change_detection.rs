@@ -59,10 +59,7 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
         Self: Deref<Target = Target> + DerefMut<Target = Target>,
         Target: PartialEq,
     {
-        if *self.value != value {
-            *self.value = value;
-            self.set_changed();
-        }
+        unreachable!()
     }
 }
 
