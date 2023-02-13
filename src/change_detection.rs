@@ -1,5 +1,5 @@
 use bevy::ecs::component::ComponentTicks;
-use bevy::prelude::DetectChanges;
+use bevy::prelude::*;
 use std::ops::{Deref, DerefMut};
 
 /// Unique mutable borrow of an entity's component
@@ -15,8 +15,6 @@ pub struct Ticks<'a> {
 }
 
 impl<T: ?Sized> DetectChanges for Mut<'_, T> {
-    type Inner = T;
-
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
@@ -32,15 +30,19 @@ impl<T: ?Sized> DetectChanges for Mut<'_, T> {
     }
 
     #[inline]
+    fn last_changed(&self) -> u32 {
+        self.ticks.last_change_tick
+    }
+}
+
+impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
+    type Inner = T;
+
+    #[inline]
     fn set_changed(&mut self) {
         self.ticks
             .component_ticks
             .set_changed(self.ticks.change_tick);
-    }
-
-    #[inline]
-    fn last_changed(&self) -> u32 {
-        self.ticks.last_change_tick
     }
 
     #[inline]
