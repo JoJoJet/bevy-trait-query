@@ -358,7 +358,7 @@ pub mod imports {
         query::{
             Access, Added, Changed, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery,
         },
-        storage::Table,
+        storage::{Table, TableRow},
         world::World,
     };
 }

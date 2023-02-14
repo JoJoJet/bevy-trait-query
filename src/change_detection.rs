@@ -1,5 +1,5 @@
-use bevy::ecs::component::ComponentTicks;
-use bevy::prelude::DetectChanges;
+use bevy::ecs::component::Tick;
+use bevy::prelude::*;
 use std::ops::{Deref, DerefMut};
 
 /// Unique mutable borrow of an entity's component
@@ -9,38 +9,39 @@ pub struct Mut<'a, T: ?Sized> {
 }
 
 pub struct Ticks<'a> {
-    pub component_ticks: &'a mut ComponentTicks,
+    pub added: &'a mut Tick,
+    pub changed: &'a mut Tick,
     pub last_change_tick: u32,
     pub change_tick: u32,
 }
 
 impl<T: ?Sized> DetectChanges for Mut<'_, T> {
-    type Inner = T;
-
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
-            .component_ticks
-            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+            .added
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
-            .component_ticks
-            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
-    }
-
-    #[inline]
-    fn set_changed(&mut self) {
-        self.ticks
-            .component_ticks
-            .set_changed(self.ticks.change_tick);
+            .changed
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn last_changed(&self) -> u32 {
         self.ticks.last_change_tick
+    }
+}
+
+impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
+    type Inner = T;
+
+    #[inline]
+    fn set_changed(&mut self) {
+        self.ticks.added.set_changed(self.ticks.change_tick);
     }
 
     #[inline]
@@ -51,6 +52,14 @@ impl<T: ?Sized> DetectChanges for Mut<'_, T> {
     #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         self.value
+    }
+
+    fn set_if_neq<Target>(&mut self, _: Target)
+    where
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq,
+    {
+        unreachable!()
     }
 }
 
