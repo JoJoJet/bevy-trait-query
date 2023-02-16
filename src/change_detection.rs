@@ -53,14 +53,6 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         self.value
     }
-
-    fn set_if_neq<Target>(&mut self, _: Target)
-    where
-        Self: Deref<Target = Target> + DerefMut<Target = Target>,
-        Target: PartialEq,
-    {
-        unreachable!()
-    }
 }
 
 impl<'a, T: ?Sized> Mut<'a, T> {
