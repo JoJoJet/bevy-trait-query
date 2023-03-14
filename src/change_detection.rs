@@ -41,12 +41,12 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks.added.set_changed(self.ticks.change_tick);
+        self.ticks.changed.set_changed(self.ticks.change_tick);
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick;
+    fn set_last_changed(&mut self, change_tick: u32) {
+        self.ticks.changed.set_changed(change_tick);
     }
 
     #[inline]
