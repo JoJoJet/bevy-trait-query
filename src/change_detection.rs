@@ -104,3 +104,34 @@ impl<T: ?Sized> AsMut<T> for Mut<'_, T> {
         self.deref_mut()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_changed() {
+        let mut x = 0;
+        let mut x = Mut {
+            value: &mut x,
+            ticks: Ticks {
+                added: &mut Tick::new(1),
+                changed: &mut Tick::new(1),
+                last_change_tick: 0,
+                change_tick: 2,
+            },
+        };
+
+        assert!(x.is_added());
+        assert!(x.is_changed());
+
+        x.ticks.last_change_tick = x.ticks.change_tick;
+        x.ticks.change_tick += 1;
+        assert!(!x.is_added());
+        assert!(!x.is_changed());
+
+        *x = 1;
+        assert!(!x.is_added());
+        assert!(x.is_changed());
+    }
+}
