@@ -41,12 +41,12 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks.added.set_changed(self.ticks.change_tick);
+        self.ticks.changed.set_changed(self.ticks.change_tick);
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick;
+    fn set_last_changed(&mut self, change_tick: u32) {
+        self.ticks.changed.set_changed(change_tick);
     }
 
     #[inline]
@@ -102,5 +102,36 @@ impl<T: ?Sized> AsMut<T> for Mut<'_, T> {
     #[inline]
     fn as_mut(&mut self) -> &mut T {
         self.deref_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_changed() {
+        let mut x = 0;
+        let mut x = Mut {
+            value: &mut x,
+            ticks: Ticks {
+                added: &mut Tick::new(1),
+                changed: &mut Tick::new(1),
+                last_change_tick: 0,
+                change_tick: 2,
+            },
+        };
+
+        assert!(x.is_added());
+        assert!(x.is_changed());
+
+        x.ticks.last_change_tick = x.ticks.change_tick;
+        x.ticks.change_tick += 1;
+        assert!(!x.is_added());
+        assert!(!x.is_changed());
+
+        *x = 1;
+        assert!(!x.is_added());
+        assert!(x.is_changed());
     }
 }
