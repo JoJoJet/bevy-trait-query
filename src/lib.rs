@@ -135,7 +135,7 @@
 //! #         .add_plugins(DefaultPlugins)
 //! #         .register_component_as::<dyn Tooltip, Player>()
 //! #         .register_component_as::<dyn Tooltip, Monster>()
-//! #         .add_startup_system(setup)
+//! #         .add_systems(Startup, setup)
 //! #         .update();
 //! # }
 //! #
