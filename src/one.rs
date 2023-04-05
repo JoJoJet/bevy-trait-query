@@ -1,5 +1,5 @@
-use crate::change_detection::{Mut, Ticks};
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
+use bevy::ecs::change_detection::Mut;
 use bevy::ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -49,8 +49,8 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     // this will carry the component data and metadata for the first trait impl found in the archetype.
     storage: WriteStorage<'w, Trait>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 enum WriteStorage<'w, Trait: ?Sized> {
@@ -95,8 +95,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
@@ -264,14 +264,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteTraitFetch<'w, Trait> {
         WriteTraitFetch {
             storage: WriteStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -296,8 +296,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                 }
             },
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -407,15 +407,13 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             }
         };
 
-        Mut {
-            value: dyn_ctor.cast_mut(ptr),
-            ticks: Ticks {
-                added,
-                changed,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
-            },
-        }
+        Mut::new(
+            dyn_ctor.cast_mut(ptr),
+            added,
+            changed,
+            fetch.last_run,
+            fetch.this_run,
+        )
     }
 
     #[inline]

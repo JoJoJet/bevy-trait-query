@@ -90,7 +90,7 @@
 //!             .register_component_as::<dyn Tooltip, Player>()
 //!             .register_component_as::<dyn Tooltip, Villager>()
 //!             .register_component_as::<dyn Tooltip, Monster>()
-//!             .add_system(show_tooltips);
+//!             .add_systems(Update, show_tooltips);
 //!     }
 //! }
 //! # fn show_tooltips() {}
@@ -135,7 +135,7 @@
 //! #         .add_plugins(DefaultPlugins)
 //! #         .register_component_as::<dyn Tooltip, Player>()
 //! #         .register_component_as::<dyn Tooltip, Monster>()
-//! #         .add_startup_system(setup)
+//! #         .add_systems(Startup, setup)
 //! #         .update();
 //! # }
 //! #
@@ -212,7 +212,6 @@ use bevy::{
 mod tests;
 
 pub mod all;
-pub mod change_detection;
 pub mod one;
 
 pub use all::*;
@@ -353,6 +352,7 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 pub mod imports {
     pub use bevy::ecs::{
         archetype::{Archetype, ArchetypeComponentId},
+        component::Tick,
         component::{Component, ComponentId},
         entity::Entity,
         query::{
