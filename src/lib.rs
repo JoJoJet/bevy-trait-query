@@ -90,7 +90,7 @@
 //!             .register_component_as::<dyn Tooltip, Player>()
 //!             .register_component_as::<dyn Tooltip, Villager>()
 //!             .register_component_as::<dyn Tooltip, Monster>()
-//!             .add_system(show_tooltips);
+//!             .add_systems(Update, show_tooltips);
 //!     }
 //! }
 //! # fn show_tooltips() {}
