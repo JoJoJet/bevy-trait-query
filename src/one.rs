@@ -1,5 +1,5 @@
-use crate::change_detection::{Mut, Ticks};
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
+use bevy::ecs::change_detection::Mut;
 use bevy::ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -407,15 +407,13 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             }
         };
 
-        Mut {
-            value: dyn_ctor.cast_mut(ptr),
-            ticks: Ticks {
-                added,
-                changed,
-                last_change_tick: fetch.last_run.get(),
-                change_tick: fetch.this_run.get(),
-            },
-        }
+        Mut::new(
+            dyn_ctor.cast_mut(ptr),
+            added,
+            changed,
+            fetch.last_run,
+            fetch.this_run,
+        )
     }
 
     #[inline]
