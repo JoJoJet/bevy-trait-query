@@ -57,11 +57,7 @@ fn one1() {
     world.spawn(Dolphin(27));
 
     let mut schedule = Schedule::new();
-    schedule
-        .add_system(print_info)
-        .add_system(age_up.after(print_info))
-        .add_system(change_name.after(print_info))
-        .add_system(pluralize.after(print_info));
+    schedule.add_systems((print_info, (age_up, change_name, pluralize)).chain());
 
     schedule.run(&mut world);
     schedule.run(&mut world);
@@ -126,10 +122,7 @@ fn all1() {
     world.spawn(Dolphin(27));
 
     let mut schedule = Schedule::new();
-    schedule
-        .add_system(print_all_info)
-        .add_system(age_up_fem.after(print_all_info))
-        .add_system(age_up_not.after(print_all_info));
+    schedule.add_systems((print_all_info, (age_up_fem, age_up_not)).chain());
 
     schedule.run(&mut world);
     schedule.run(&mut world);
@@ -231,9 +224,7 @@ fn sparse1() {
     world.spawn((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
 
     let mut schedule = Schedule::new();
-    schedule
-        .add_system(print_messages)
-        .add_system(spawn_sparse.after(print_messages));
+    schedule.add_systems((print_messages, spawn_sparse).chain());
 
     schedule.run(&mut world);
     schedule.run(&mut world);
@@ -289,7 +280,7 @@ fn multi_register() {
     world.spawn(RecB(vec![]));
 
     let mut schedule = Schedule::new();
-    schedule.add_system(count_impls);
+    schedule.add_systems(count_impls);
 
     fn count_impls(q: Query<&dyn Messages>, mut output: ResMut<Output>) {
         for traits in &q {
