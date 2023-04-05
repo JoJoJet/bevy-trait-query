@@ -49,8 +49,8 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     // this will carry the component data and metadata for the first trait impl found in the archetype.
     storage: WriteStorage<'w, Trait>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 enum WriteStorage<'w, Trait: ?Sized> {
@@ -95,8 +95,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
@@ -264,14 +264,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteTraitFetch<'w, Trait> {
         WriteTraitFetch {
             storage: WriteStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -296,8 +296,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                 }
             },
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -412,8 +412,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             ticks: Ticks {
                 added,
                 changed,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
+                last_change_tick: fetch.last_run.get(),
+                change_tick: fetch.this_run.get(),
             },
         }
     }

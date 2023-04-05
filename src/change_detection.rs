@@ -18,21 +18,23 @@ pub struct Ticks<'a> {
 impl<T: ?Sized> DetectChanges for Mut<'_, T> {
     #[inline]
     fn is_added(&self) -> bool {
-        self.ticks
-            .added
-            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
+        self.ticks.added.is_newer_than(
+            Tick::new(self.ticks.last_change_tick),
+            Tick::new(self.ticks.change_tick),
+        )
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
-        self.ticks
-            .changed
-            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
+        self.ticks.changed.is_newer_than(
+            Tick::new(self.ticks.last_change_tick),
+            Tick::new(self.ticks.change_tick),
+        )
     }
 
     #[inline]
-    fn last_changed(&self) -> u32 {
-        self.ticks.last_change_tick
+    fn last_changed(&self) -> Tick {
+        Tick::new(self.ticks.last_change_tick)
     }
 }
 
@@ -41,12 +43,12 @@ impl<T: ?Sized> DetectChangesMut for Mut<'_, T> {
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks.changed.set_changed(self.ticks.change_tick);
+        self.ticks.changed.set(self.ticks.change_tick);
     }
 
     #[inline]
-    fn set_last_changed(&mut self, change_tick: u32) {
-        self.ticks.changed.set_changed(change_tick);
+    fn set_last_changed(&mut self, change_tick: Tick) {
+        *self.ticks.changed = change_tick;
     }
 
     #[inline]

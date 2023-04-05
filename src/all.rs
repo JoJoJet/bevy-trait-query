@@ -2,7 +2,7 @@ use crate::change_detection::{Mut, Ticks};
 use crate::{
     debug_unreachable, zip_exact, TraitImplMeta, TraitImplRegistry, TraitQuery, TraitQueryState,
 };
-use bevy::ecs::component::ComponentId;
+use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{SparseSets, Table, TableRow};
@@ -360,8 +360,8 @@ pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
     registry: &'w TraitImplRegistry<Trait>,
     table: Option<&'w Table>,
     sparse_sets: &'w SparseSets,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
@@ -397,8 +397,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) -> ReadAllTraitsFetch<'w, Trait> {
         ReadAllTraitsFetch {
             registry: world.resource(),
@@ -512,15 +512,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
         WriteAllTraitsFetch {
             registry: world.resource(),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -530,8 +530,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -570,8 +570,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_change_tick: fetch.last_run.get(),
+            change_tick: fetch.this_run.get(),
         }
     }
 

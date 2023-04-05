@@ -353,6 +353,7 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 pub mod imports {
     pub use bevy::ecs::{
         archetype::{Archetype, ArchetypeComponentId},
+        component::Tick,
         component::{Component, ComponentId},
         entity::Entity,
         query::{
