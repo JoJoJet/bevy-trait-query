@@ -77,7 +77,7 @@ impl<'w> Benchmark<'w> {
         let query = world.query();
         Self(world, query, default())
     }
-    // Queries with only one, and queries with mutliple.
+    // Queries with only one, and queries with multiple.
     pub fn distributed() -> Self {
         let mut world = World::new();
 
