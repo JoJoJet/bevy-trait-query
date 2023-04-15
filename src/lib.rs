@@ -1,4 +1,4 @@
-//! Lets say you have a trait that you wanna implement for some of your components.
+//! Let's say you have a trait that you want to implement for some of your components.
 //!
 //! ```
 //! # use bevy::prelude::*;

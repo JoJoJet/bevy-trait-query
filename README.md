@@ -22,7 +22,7 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 
 <!-- cargo-rdme start -->
 
-Lets say you have a trait that you wanna implement for some of your components.
+Let's say you have a trait that you want to implement for some of your components.
 
 ```rust
 /// Components that display a message when hovered.
