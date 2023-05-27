@@ -939,7 +939,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
                     added_ticks: column.get_added_ticks_slice().into(),
-                    changed_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
