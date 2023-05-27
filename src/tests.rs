@@ -1,5 +1,5 @@
 use super::*;
-use crate::change_detection::{OneAddedFilter, OneChangedFilter};
+use crate::query_filter::{OneAddedFilter, OneChangedFilter};
 use std::fmt::{Debug, Display};
 
 #[derive(Resource, Default)]

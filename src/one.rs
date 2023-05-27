@@ -287,14 +287,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: Tick,
-        change_tick: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
-            last_run: last_change_tick,
             sparse_sets: &world.storages().sparse_sets,
-            this_run: change_tick,
+            last_run,
+            this_run,
         }
     }
 
