@@ -262,6 +262,7 @@ use bevy::{
 mod tests;
 
 pub mod all;
+mod change_detection;
 pub mod one;
 
 pub use all::*;
