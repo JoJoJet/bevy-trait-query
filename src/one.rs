@@ -1,6 +1,6 @@
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
 use bevy::ecs::change_detection::Mut;
-use bevy::ecs::component::{ComponentId, ComponentTicks, Tick};
+use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{ComponentSparseSet, SparseSets, TableRow};
@@ -16,8 +16,8 @@ pub struct ReadTraitFetch<'w, Trait: ?Sized> {
     // After `Fetch::set_archetype` or `set_table` has been called,
     // this will carry the component data and metadata for the first trait impl found in the archetype.
     storage: ReadStorage<'w, Trait>,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 enum ReadStorage<'w, Trait: ?Sized> {
@@ -28,7 +28,8 @@ enum ReadStorage<'w, Trait: ?Sized> {
         /// The fetch impl registers read access for all of these components,
         /// so there will be no runtime conflicts.
         column: Ptr<'w>,
-        ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+        added_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
@@ -114,9 +115,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
-            last_change_tick: 0,
+            last_run: Tick::new(0),
             sparse_sets: &world.storages().sparse_sets,
-            change_tick: 0,
+            this_run: Tick::new(0),
         }
     }
 
@@ -127,20 +128,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
                 ReadStorage::Uninit => ReadStorage::Uninit,
                 ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 } => ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 },
                 ReadStorage::SparseSet { components, meta } => {
                     ReadStorage::SparseSet { components, meta }
                 }
             },
-            last_change_tick: 0,
+            last_run: Tick::new(0),
             sparse_sets: fetch.sparse_sets,
-            change_tick: 0,
+            this_run: Tick::new(0),
         }
     }
 
@@ -160,7 +163,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    ticks: None,
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -190,7 +194,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    ticks: None,
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 }
             }
@@ -282,14 +287,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
-            last_change_tick,
+            last_run: last_change_tick,
             sparse_sets: &world.storages().sparse_sets,
-            change_tick,
+            this_run: change_tick,
         }
     }
 
@@ -300,20 +305,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
                 ReadStorage::Uninit => ReadStorage::Uninit,
                 ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 } => ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 },
                 ReadStorage::SparseSet { components, meta } => {
                     ReadStorage::SparseSet { components, meta }
                 }
             },
-            last_change_tick: fetch.last_change_tick,
+            last_run: fetch.last_run,
             sparse_sets: fetch.sparse_sets,
-            change_tick: fetch.change_tick,
+            this_run: fetch.this_run,
         }
     }
 
@@ -333,7 +340,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    ticks: Some(ThinSlicePtr::from(column.get_ticks_slice())),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -366,21 +374,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             ReadStorage::Uninit => debug_unreachable(),
             ReadStorage::Table {
                 column,
-                ticks,
+                added_ticks: _,
+                changed_ticks,
                 meta,
-            } => ticks
-                .unwrap_or_else(|| debug_unreachable())
+            } => changed_ticks
                 .get(table_row)
                 .deref()
-                .is_changed(fetch.last_change_tick, fetch.change_tick)
+                .is_newer_than(fetch.last_run, fetch.this_run)
                 .then(|| {
                     let ptr = column.byte_add(table_row * meta.size_bytes);
                     meta.dyn_ctor.cast(ptr)
@@ -390,8 +399,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 ticks
+                    .changed
                     .deref()
-                    .is_changed(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| meta.dyn_ctor.cast(ptr))
             }
         }
@@ -456,14 +466,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
-            last_change_tick,
+            last_run,
             sparse_sets: &world.storages().sparse_sets,
-            change_tick,
+            this_run,
         }
     }
 
@@ -474,20 +484,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
                 ReadStorage::Uninit => ReadStorage::Uninit,
                 ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 } => ReadStorage::Table {
                     column,
-                    ticks,
+                    added_ticks,
+                    changed_ticks,
                     meta,
                 },
                 ReadStorage::SparseSet { components, meta } => {
                     ReadStorage::SparseSet { components, meta }
                 }
             },
-            last_change_tick: fetch.last_change_tick,
+            last_run: fetch.last_run,
             sparse_sets: fetch.sparse_sets,
-            change_tick: fetch.change_tick,
+            this_run: fetch.this_run,
         }
     }
 
@@ -507,7 +519,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = ReadStorage::Table {
                     column: column.get_data_ptr(),
-                    ticks: Some(ThinSlicePtr::from(column.get_ticks_slice())),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -540,21 +553,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             ReadStorage::Uninit => debug_unreachable(),
             ReadStorage::Table {
                 column,
-                ticks,
+                added_ticks,
+                changed_ticks: _,
                 meta,
-            } => ticks
-                .unwrap_or_else(|| debug_unreachable())
+            } => added_ticks
                 .get(table_row)
                 .deref()
-                .is_added(fetch.last_change_tick, fetch.change_tick)
+                .is_newer_than(fetch.last_run, fetch.this_run)
                 .then(|| {
                     let ptr = column.byte_add(table_row * meta.size_bytes);
                     meta.dyn_ctor.cast(ptr)
@@ -564,8 +578,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 ticks
+                    .added
                     .deref()
-                    .is_added(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| meta.dyn_ctor.cast(ptr))
             }
         }
@@ -840,14 +855,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteTraitFetch<'w, Trait> {
         WriteTraitFetch {
             storage: WriteStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -859,19 +874,21 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
                 WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 } => WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 },
                 WriteStorage::SparseSet { components, meta } => {
                     WriteStorage::SparseSet { components, meta }
                 }
             },
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -890,7 +907,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -920,7 +938,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_added_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -934,31 +953,36 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             WriteStorage::Uninit => debug_unreachable(),
             WriteStorage::Table {
                 column,
-                table_ticks,
+                added_ticks,
+                changed_ticks,
                 meta,
             } => {
-                table_ticks
+                changed_ticks
                     .get(table_row)
                     .deref()
-                    .is_changed(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| {
                         let ptr = column.byte_add(table_row * meta.size_bytes);
-                        (
+                        Mut::new(
                             // SAFETY: `column` allows for shared mutable access.
                             // So long as the caller does not invoke this function twice with the same archetype_index,
                             // this pointer will never be aliased.
                             meta.dyn_ctor.cast_mut(ptr.assert_unique()),
                             // SAFETY: We have exclusive access to the component, so by extension
                             // we have exclusive access to the corresponding `ComponentTicks`.
-                            table_ticks.get(table_row).deref_mut(),
+                            added_ticks.get(table_row).deref_mut(),
+                            changed_ticks.get(table_row).deref_mut(),
+                            fetch.last_run,
+                            fetch.this_run,
                         )
                     })
             }
@@ -967,29 +991,25 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 ticks
+                    .changed
                     .deref()
-                    .is_changed(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| {
-                        (
+                        Mut::new(
                             // SAFETY: We have exclusive access to the sparse set `components`.
                             // So long as the caller does not invoke this function twice with the same archetype_index,
                             // this pointer will never be aliased.
                             meta.dyn_ctor.cast_mut(ptr.assert_unique()),
                             // SAFETY: We have exclusive access to the component, so by extension
                             // we have exclusive access to the corresponding `ComponentTicks`.
-                            ticks.deref_mut(),
+                            ticks.added.deref_mut(),
+                            ticks.changed.deref_mut(),
+                            fetch.last_run,
+                            fetch.this_run,
                         )
                     })
             }
         }
-        .map(|(value, component_ticks)| Mut {
-            value,
-            ticks: Ticks {
-                component_ticks,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
-            },
-        })
     }
 
     #[inline]
@@ -1050,14 +1070,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteTraitFetch<'w, Trait> {
         WriteTraitFetch {
             storage: WriteStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -1069,19 +1089,21 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
                 WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 } => WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 },
                 WriteStorage::SparseSet { components, meta } => {
                     WriteStorage::SparseSet { components, meta }
                 }
             },
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -1100,7 +1122,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -1130,7 +1153,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -1144,31 +1168,36 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             WriteStorage::Uninit => debug_unreachable(),
             WriteStorage::Table {
                 column,
-                table_ticks,
+                added_ticks,
+                changed_ticks,
                 meta,
             } => {
-                table_ticks
+                added_ticks
                     .get(table_row)
                     .deref()
-                    .is_added(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| {
                         let ptr = column.byte_add(table_row * meta.size_bytes);
-                        (
+                        Mut::new(
                             // SAFETY: `column` allows for shared mutable access.
                             // So long as the caller does not invoke this function twice with the same archetype_index,
                             // this pointer will never be aliased.
                             meta.dyn_ctor.cast_mut(ptr.assert_unique()),
                             // SAFETY: We have exclusive access to the component, so by extension
                             // we have exclusive access to the corresponding `ComponentTicks`.
-                            table_ticks.get(table_row).deref_mut(),
+                            added_ticks.get(table_row).deref_mut(),
+                            changed_ticks.get(table_row).deref_mut(),
+                            fetch.last_run,
+                            fetch.this_run,
                         )
                     })
             }
@@ -1177,29 +1206,25 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 ticks
+                    .added
                     .deref()
-                    .is_added(fetch.last_change_tick, fetch.change_tick)
+                    .is_newer_than(fetch.last_run, fetch.this_run)
                     .then(|| {
-                        (
+                        Mut::new(
                             // SAFETY: We have exclusive access to the sparse set `components`.
                             // So long as the caller does not invoke this function twice with the same archetype_index,
                             // this pointer will never be aliased.
                             meta.dyn_ctor.cast_mut(ptr.assert_unique()),
                             // SAFETY: We have exclusive access to the component, so by extension
                             // we have exclusive access to the corresponding `ComponentTicks`.
-                            ticks.deref_mut(),
+                            ticks.added.deref_mut(),
+                            ticks.changed.deref_mut(),
+                            fetch.last_run,
+                            fetch.this_run,
                         )
                     })
             }
         }
-        .map(|(value, component_ticks)| Mut {
-            value,
-            ticks: Ticks {
-                component_ticks,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
-            },
-        })
     }
 
     #[inline]
