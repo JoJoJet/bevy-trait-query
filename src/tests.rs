@@ -192,20 +192,18 @@ fn added_all() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_added_all_info)
-        .add_system(age_up_fem.after(print_added_all_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_added_all_info, age_up_fem).chain());
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     // only changes will occur now to the ages of Garbanzo/Reginald, so nothing should be printed
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     println!("{:?}", world.resource::<Output>().0);
 
@@ -244,25 +242,23 @@ fn changed_all() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_changed_all_info)
-        .add_system(age_up_fem.after(print_changed_all_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_changed_all_info, age_up_fem).chain());
 
     // Henry is newly added, so we expect him to be printed
     world.spawn(Human("Henry".to_owned(), 22));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     // Garbanzo and Dolphin (Reginald) are newly added, so we expect them to be printed
     world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     // Garbanzo and Dolphin (Reginald) will both be incremented in age by one by `age_up_fem`, so
     // they should be printed again
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -303,19 +299,16 @@ fn added_one() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_added_one_info)
-        .add_system(age_up_fem.after(print_added_one_info))
-        .add_system(age_up_not.after(print_added_one_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_added_one_info, (age_up_fem, age_up_not)).chain());
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     world.spawn((Dolphin(27), Fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -353,18 +346,16 @@ fn changed_one() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_changed_one_info)
-        .add_system(age_up_fem.after(print_changed_one_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_changed_one_info, age_up_fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     world.spawn((Dolphin(27), Fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -403,19 +394,16 @@ fn one_added_filter() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_one_added_filter_info)
-        .add_system(age_up_fem.after(print_one_added_filter_info))
-        .add_system(age_up_not.after(print_one_added_filter_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_one_added_filter_info, (age_up_fem, age_up_not)).chain());
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     world.spawn((Dolphin(27), Fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
@@ -456,18 +444,16 @@ fn one_changed_filter() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut stage = SystemStage::parallel();
-    stage
-        .add_system(print_one_changed_filter_info)
-        .add_system(age_up_fem.after(print_one_changed_filter_info));
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_one_changed_filter_info, age_up_fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     world.spawn((Dolphin(27), Fem));
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
-    stage.run(&mut world);
+    schedule.run(&mut world);
 
     assert_eq!(
         world.resource::<Output>().0,
