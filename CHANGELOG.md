@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 0.2.1
+
+### FIxed
+
+* Fixed change detection reporting for trait queries.
+
+## Version 0.2 (Bevy 0.10)
+
+* Added support for Bevy 0.10.
+
 ## Version 0.1.1
 
 ### Fixed

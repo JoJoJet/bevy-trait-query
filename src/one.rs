@@ -1,9 +1,9 @@
-use crate::change_detection::{Mut, Ticks};
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
-use bevy::ecs::component::{ComponentId, ComponentTicks};
+use bevy::ecs::change_detection::Mut;
+use bevy::ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
-use bevy::ecs::storage::{ComponentSparseSet, SparseSets};
+use bevy::ecs::storage::{ComponentSparseSet, SparseSets, TableRow};
 use bevy::ecs::world::World;
 use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -51,8 +51,8 @@ pub struct WriteTraitFetch<'w, Trait: ?Sized> {
     // this will carry the component data and metadata for the first trait impl found in the archetype.
     storage: WriteStorage<'w, Trait>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 enum WriteStorage<'w, Trait: ?Sized> {
@@ -63,7 +63,8 @@ enum WriteStorage<'w, Trait: ?Sized> {
         /// The fetch impl registers write access for all of these components,
         /// so there will be no runtime conflicts.
         column: Ptr<'w>,
-        table_ticks: ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
+        added_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         meta: TraitImplMeta<Trait>,
     },
     SparseSet {
@@ -108,8 +109,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> ReadTraitFetch<'w, Trait> {
         ReadTraitFetch {
             storage: ReadStorage::Uninit,
@@ -202,8 +203,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        let table_row = table_row.index();
         match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
@@ -628,14 +630,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         _state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> WriteTraitFetch<'w, Trait> {
         WriteTraitFetch {
             storage: WriteStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -647,19 +649,21 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                 WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 } => WriteStorage::Table {
                     column,
                     meta,
-                    table_ticks,
+                    added_ticks,
+                    changed_ticks,
                 },
                 WriteStorage::SparseSet { components, meta } => {
                     WriteStorage::SparseSet { components, meta }
                 }
             },
             sparse_sets: fetch.sparse_sets,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -678,7 +682,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -708,7 +713,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             if let Some(column) = table.get_column(component) {
                 fetch.storage = WriteStorage::Table {
                     column: column.get_data_ptr(),
-                    table_ticks: column.get_ticks_slice().into(),
+                    added_ticks: column.get_added_ticks_slice().into(),
+                    changed_ticks: column.get_changed_ticks_slice().into(),
                     meta,
                 };
                 return;
@@ -722,16 +728,18 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Mut<'w, Trait> {
+        let table_row = table_row.index();
         let dyn_ctor;
-        let (ptr, component_ticks) = match fetch.storage {
+        let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             WriteStorage::Uninit => debug_unreachable(),
             WriteStorage::Table {
                 column,
-                table_ticks,
+                added_ticks,
+                changed_ticks,
                 meta,
             } => {
                 dyn_ctor = meta.dyn_ctor;
@@ -743,7 +751,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                     ptr.assert_unique(),
                     // SAFETY: We have exclusive access to the component, so by extension
                     // we have exclusive access to the corresponding `ComponentTicks`.
-                    table_ticks.get(table_row).deref_mut(),
+                    added_ticks.get(table_row).deref_mut(),
+                    changed_ticks.get(table_row).deref_mut(),
                 )
             }
             WriteStorage::SparseSet { components, meta } => {
@@ -758,19 +767,19 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                     ptr.assert_unique(),
                     // SAFETY: We have exclusive access to the component, so by extension
                     // we have exclusive access to the corresponding `ComponentTicks`.
-                    ticks.deref_mut(),
+                    ticks.added.deref_mut(),
+                    ticks.changed.deref_mut(),
                 )
             }
         };
 
-        Mut {
-            value: dyn_ctor.cast_mut(ptr),
-            ticks: Ticks {
-                component_ticks,
-                last_change_tick: fetch.last_change_tick,
-                change_tick: fetch.change_tick,
-            },
-        }
+        Mut::new(
+            dyn_ctor.cast_mut(ptr),
+            added,
+            changed,
+            fetch.last_run,
+            fetch.this_run,
+        )
     }
 
     #[inline]

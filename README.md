@@ -6,6 +6,7 @@ Before using this crate, you should be familiar with bevy: https://bevyengine.or
 
 | Bevy Version | [Crate Version](CHANGELOG.md) |
 |--------------|---------------|
+| 0.10         | 0.2           |
 | 0.9          | 0.1           |
 | 0.8          | 0.0.3         |
 | Preview      | Main branch   |
@@ -21,7 +22,7 @@ If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-
 
 <!-- cargo-rdme start -->
 
-Lets say you have a trait that you wanna implement for some of your components.
+Let's say you have a trait that you want to implement for some of your components.
 
 ```rust
 /// Components that display a message when hovered.
@@ -80,7 +81,7 @@ impl Plugin for TooltipPlugin {
             .register_component_as::<dyn Tooltip, Player>()
             .register_component_as::<dyn Tooltip, Villager>()
             .register_component_as::<dyn Tooltip, Monster>()
-            .add_system(show_tooltips);
+            .add_systems(Update, show_tooltips);
     }
 }
 ```
