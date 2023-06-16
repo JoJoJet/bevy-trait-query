@@ -445,7 +445,7 @@ fn one_changed_filter() {
     world.spawn(Human("Henry".to_owned(), 22));
 
     let mut schedule = Schedule::new();
-    schedule.add_systems((print_one_changed_filter_info, age_up_fem));
+    schedule.add_systems((print_one_changed_filter_info, age_up_fem).chain());
 
     schedule.run(&mut world);
 
