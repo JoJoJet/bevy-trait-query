@@ -344,10 +344,10 @@ fn changed_one() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    world.spawn(Human("Henry".to_owned(), 22));
-
     let mut schedule = Schedule::new();
     schedule.add_systems((print_changed_one_info, age_up_fem).chain());
+
+    world.spawn(Human("Henry".to_owned(), 22));
 
     schedule.run(&mut world);
 
