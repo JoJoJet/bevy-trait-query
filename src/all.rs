@@ -31,6 +31,7 @@ pub struct AddedReadTraits<'a, Trait: ?Sized + TraitQuery> {
     // we can be confident that no write accesses will conflict with this.
     registry: &'a TraitImplRegistry<Trait>,
     table: &'a Table,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     /// This grants shared access to all sparse set components,
     /// but in practice we will only read the components specified in `self.registry`.
@@ -48,6 +49,7 @@ pub struct ChangedReadTraits<'a, Trait: ?Sized + TraitQuery> {
     // we can be confident that no write accesses will conflict with this.
     registry: &'a TraitImplRegistry<Trait>,
     table: &'a Table,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     /// This grants shared access to all sparse set components,
     /// but in practice we will only read the components specified in `self.registry`.
@@ -74,6 +76,7 @@ pub struct AddedReadTableTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     // Grants shared access to the components corresponding to `components` in this table.
     // Not all components are guaranteed to exist in the table.
@@ -99,6 +102,7 @@ pub struct ChangedReadTableTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     // Grants shared access to the components corresponding to `components` in this table.
     // Not all components are guaranteed to exist in the table.
@@ -129,18 +133,16 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadTableTraitsIter<'a, T
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table.
+        // until we find one that exists in the table and has also been added since last tick.
         let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
 
-        // SAFETY: we know that the table row is a valid index???
+        // SAFETY: we know that the `table_row` is a valid index.
         let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
         column_ticks
             .is_added(self.last_run, self.this_run)
             .then(|| unsafe {
-                // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE! Unlike in the write case, we do not have
-                // exclusive access! We have shared access to the entire column and ticks? This might be
-                // okay though because there cannot be any other accesses with write access at the same
+                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
                 // time?
                 let ptr = column
                     .get_data_ptr()
@@ -155,19 +157,16 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadTableTraitsIter<'a,
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table.
+        // until we find one that exists in the table and has changed since the last tick.
         let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
 
-        // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE!: we know that the table row is a valid index???
+        // SAFETY: we know that the `table_row` is a valid index.
         let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
         column_ticks
             .is_changed(self.last_run, self.this_run)
             .then(|| unsafe {
-                // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE! Unlike in the write case, we do not have
-                // exclusive access! We have shared access to the entire column and ticks? This might be
-                // okay though because there cannot be any other accesses with write access at the same
-                // time?
+                // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
                 let ptr = column
                     .get_data_ptr()
                     .byte_add(self.table_row * meta.size_bytes);
@@ -242,10 +241,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadSparseTraitsIter<'a, 
                 .zip(Some(meta))
         })?;
 
-        // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE! Unlike in the write case, we do not have
-        // exclusive access! We have shared access to the entire column and ticks? This might be
-        // okay though because there cannot be any other accesses with write access at the same
-        // time?
+                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
         unsafe {
             ticks_ptr
                 .added
@@ -270,10 +266,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadSparseTraitsIter<'a
                     .zip(Some(meta))
             })?;
 
-        // SAFETY ISSUE! SAFETY ISSUE! SAFETY ISSUE! Unlike in the write case, we do not have
-        // exclusive access! We have shared access to the entire column and ticks? This might be
-        // okay though because there cannot be any other accesses with write access at the same
-        // time?
+                // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
         unsafe {
             tick_cells
                 .changed
@@ -486,6 +479,7 @@ pub struct AddedWriteTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
 
     table: &'a Table,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
 
     last_run: Tick,
@@ -507,6 +501,7 @@ pub struct ChangedWriteTraits<'a, Trait: ?Sized + TraitQuery> {
     registry: &'a TraitImplRegistry<Trait>,
 
     table: &'a Table,
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
 
     last_run: Tick,
@@ -554,6 +549,7 @@ pub struct AddedWriteTableTraitsIter<'a, Trait: ?Sized> {
     table: &'a Table,
     /// SAFETY: Given the same trait type and same archetype,
     /// no two instances of this struct may have the same `table_row`.
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     last_run: Tick,
     this_run: Tick,
@@ -567,6 +563,7 @@ pub struct ChangedWriteTableTraitsIter<'a, Trait: ?Sized> {
     table: &'a Table,
     /// SAFETY: Given the same trait type and same archetype,
     /// no two instances of this struct may have the same `table_row`.
+    // SAFETY: must correspond to a valid row in `self.table`
     table_row: usize,
     last_run: Tick,
     this_run: Tick,
@@ -1167,7 +1164,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
-    ) -> ReadAllTraitsFetch<'w, Trait> {
+    ) -> Self::Fetch<'w, Trait> {
         ReadAllTraitsFetch {
             registry: world.resource(),
             table: None,

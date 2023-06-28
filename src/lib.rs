@@ -196,7 +196,7 @@
 //!     tooltips_query: Query<ChangedAll<&dyn Tooltip>>
 //!     // ...
 //! ) {
-//!     // Iterate over each entity that has tooltips, which have *changed* since the last tick
+//!     // Iterate over all entities  that have changed since the last tick and have some component that implements `Tooltip`
 //!     for entity_tooltips in &tooltips_query {
 //!         // Iterate over each component implementing `Tooltip` for the current entity.
 //!         for tooltip in entity_tooltips {
@@ -206,10 +206,10 @@
 //! }
 //! ```
 //!
-//! Similar to `ChangedAll`, we have `AddedAll`.
+//! Similar to [`ChangedAll`](crate::all::ChangedAll), we have [`AddedAll`](crate::all::AddedAll) to detect entities which have had a trait-implementing component added since the last tick.
 //!
 //! If you know you have only one component that implements the target trait, you can use
-//! `ChangedOne` (or `AddedOne`) filters, which returns an `Option`al entity if change was detected:
+//! [`ChangedOne`](crate::one::ChangedOne) (or [`AddedOne`](crate::one::AddedOne)) filters, which returns an [`Option`]al entity if change was detected:
 //! ```ignore
 //! fn show_tooltips(
 //!     tooltips_query: Query<ChangedOne<&dyn Tooltip>>
@@ -217,6 +217,7 @@
 //! ) {
 //!     // Iterate over each entity that has one tooltip implementing component
 //!     for maybe_changed_tooltip in &tooltips_query {
+//!         // check if the component changed
 //!         if let Some(changed_tooltip) = maybe_changed_tooltip {
 //!             println!("Changed Tooltip: {}", tooltip.tooltip());
 //!         }
