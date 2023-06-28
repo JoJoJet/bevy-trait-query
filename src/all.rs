@@ -1164,7 +1164,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
-    ) -> Self::Fetch<'w, Trait> {
+    ) -> Self::Fetch<'w> {
         ReadAllTraitsFetch {
             registry: world.resource(),
             table: None,
