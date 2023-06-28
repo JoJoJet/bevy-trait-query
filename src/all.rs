@@ -241,7 +241,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadSparseTraitsIter<'a, 
                 .zip(Some(meta))
         })?;
 
-                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
+        // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
         unsafe {
             ticks_ptr
                 .added
@@ -266,7 +266,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadSparseTraitsIter<'a
                     .zip(Some(meta))
             })?;
 
-                // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
+        // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
         unsafe {
             tick_cells
                 .changed
