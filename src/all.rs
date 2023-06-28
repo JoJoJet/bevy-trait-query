@@ -132,47 +132,48 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table and has also been added since last tick.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+        loop {
+            // Iterate the remaining table components that are registered,
+            // until we find one that exists in the table and has also been added since last tick.
+            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
 
-        // SAFETY: we know that the `table_row` is a valid index.
-        let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
-        column_ticks
-            .is_added(self.last_run, self.this_run)
-            .then(|| unsafe {
-                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
-                // time?
-                let ptr = column
-                    .get_data_ptr()
-                    .byte_add(self.table_row * meta.size_bytes);
-                meta.dyn_ctor.cast(ptr)
-            })
-            .or_else(|| self.next())
+            // SAFETY: we know that the `table_row` is a valid index.
+            let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
+            if column_ticks.is_added(self.last_run, self.this_run) {
+                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
+                let ptr = unsafe {
+                    column
+                        .get_data_ptr()
+                        .byte_add(self.table_row * meta.size_bytes)
+                };
+                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
+            }
+        }
     }
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadTableTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table and has changed since the last tick.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+        loop {
+            // Iterate the remaining table components that are registered,
+            // until we find one that exists in the table and has changed since the last tick.
+            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
 
-        // SAFETY: we know that the `table_row` is a valid index.
-        let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
-        column_ticks
-            .is_changed(self.last_run, self.this_run)
-            .then(|| unsafe {
+            // SAFETY: we know that the `table_row` is a valid index.
+            let column_ticks = unsafe { column.get_ticks_unchecked(TableRow::new(self.table_row)) };
+            if column_ticks.is_changed(self.last_run, self.this_run) {
                 // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
-                let ptr = column
-                    .get_data_ptr()
-                    .byte_add(self.table_row * meta.size_bytes);
-                meta.dyn_ctor.cast(ptr)
-            })
-            .or_else(|| self.next())
+                let ptr = unsafe {
+                    column
+                        .get_data_ptr()
+                        .byte_add(self.table_row * meta.size_bytes)
+                };
+                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
+            }
+        }
     }
 }
 
@@ -231,24 +232,24 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadSparseTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining sparse set components that are registered,
-        // until we find one that exists in the archetype.
-        let ((ptr, ticks_ptr), meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| {
-            self.sparse_sets
-                .get(component)
-                .and_then(|set| set.get_with_ticks(self.entity))
-                .zip(Some(meta))
-        })?;
+        loop {
+            // Iterate the remaining sparse set components that are registered,
+            // until we find one that exists in the archetype.
+            let ((ptr, ticks_ptr), meta) =
+                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
+                    |(&component, meta)| {
+                        self.sparse_sets
+                            .get(component)
+                            .and_then(|set| set.get_with_ticks(self.entity))
+                            .zip(Some(meta))
+                    },
+                )?;
 
-        // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
-        unsafe {
-            ticks_ptr
-                .added
-                .deref()
-                .is_newer_than(self.last_run, self.this_run)
-                .then(|| meta.dyn_ctor.cast(ptr))
-                .or_else(|| self.next())
+            // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
+            let added_ticks = unsafe { ticks_ptr.added.deref() };
+            if added_ticks.is_newer_than(self.last_run, self.this_run) {
+                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
+            }
         }
     }
 }
@@ -256,24 +257,24 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadSparseTraitsIter<'a, 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadSparseTraitsIter<'a, Trait> {
     type Item = &'a Trait;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining sparse set components that are registered,
-        // until we find one that exists in the archetype.
-        let ((ptr, tick_cells), meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| {
-                self.sparse_sets
-                    .get(component)
-                    .and_then(|set| set.get_with_ticks(self.entity))
-                    .zip(Some(meta))
-            })?;
+        loop {
+            // Iterate the remaining sparse set components that are registered,
+            // until we find one that exists in the archetype.
+            let ((ptr, tick_cells), meta) =
+                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
+                    |(&component, meta)| {
+                        self.sparse_sets
+                            .get(component)
+                            .and_then(|set| set.get_with_ticks(self.entity))
+                            .zip(Some(meta))
+                    },
+                )?;
 
-        // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
-        unsafe {
-            tick_cells
-                .changed
-                .deref()
-                .is_newer_than(self.last_run, self.this_run)
-                .then(|| meta.dyn_ctor.cast(ptr))
-                .or_else(|| self.next())
+            // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
+            let changed_ticks = unsafe { tick_cells.changed.deref() };
+            if changed_ticks.is_newer_than(self.last_run, self.this_run) {
+                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
+            }
         }
     }
 }
@@ -609,90 +610,92 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedWriteTableTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        let ptr = unsafe {
-            column
-                .get_data_ptr()
-                .byte_add(self.table_row * meta.size_bytes)
-        };
-        // SAFETY: The instance of `WriteTraits` that created this iterator
-        // has exclusive access to all table components registered with the trait.
-        //
-        // Since `self.table_row` is guaranteed to be unique, we know that other instances
-        // of `WriteTableTraitsIter` will not conflict with this pointer.
-        //
-        // SAFETY: We have exclusive access to the component, so by extension
-        // we have exclusive access to the corresponding `ComponentTicks`.
-        let ptr = unsafe { ptr.assert_unique() };
-        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-        let added_tick = unsafe {
-            column
-                .get_added_ticks_unchecked(TableRow::new(self.table_row))
-                .deref_mut()
-        };
-        let changed_tick = unsafe {
-            column
-                .get_changed_ticks_unchecked(TableRow::new(self.table_row))
-                .deref_mut()
-        };
-        added_tick
-            .is_newer_than(self.last_run, self.this_run)
-            .then_some(Mut::new(
-                trait_object,
-                added_tick,
-                changed_tick,
-                self.last_run,
-                self.this_run,
-            ))
-            .or_else(|| self.next())
+        loop {
+            // Iterate the remaining table components that are registered,
+            // until we find one that exists in the table.
+            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+            let ptr = unsafe {
+                column
+                    .get_data_ptr()
+                    .byte_add(self.table_row * meta.size_bytes)
+            };
+            // SAFETY: The instance of `WriteTraits` that created this iterator
+            // has exclusive access to all table components registered with the trait.
+            //
+            // Since `self.table_row` is guaranteed to be unique, we know that other instances
+            // of `WriteTableTraitsIter` will not conflict with this pointer.
+            //
+            // SAFETY: We have exclusive access to the component, so by extension
+            // we have exclusive access to the corresponding `ComponentTicks`.
+            let ptr = unsafe { ptr.assert_unique() };
+            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+            let added_tick = unsafe {
+                column
+                    .get_added_ticks_unchecked(TableRow::new(self.table_row))
+                    .deref_mut()
+            };
+            let changed_tick = unsafe {
+                column
+                    .get_changed_ticks_unchecked(TableRow::new(self.table_row))
+                    .deref_mut()
+            };
+            if added_tick.is_newer_than(self.last_run, self.this_run) {
+                return Some(Mut::new(
+                    trait_object,
+                    added_tick,
+                    changed_tick,
+                    self.last_run,
+                    self.this_run,
+                ));
+            }
+        }
     }
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedWriteTableTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining table components that are registered,
-        // until we find one that exists in the table.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        let ptr = unsafe {
-            column
-                .get_data_ptr()
-                .byte_add(self.table_row * meta.size_bytes)
-        };
-        // SAFETY: The instance of `WriteTraits` that created this iterator
-        // has exclusive access to all table components registered with the trait.
-        //
-        // Since `self.table_row` is guaranteed to be unique, we know that other instances
-        // of `WriteTableTraitsIter` will not conflict with this pointer.
-        //
-        // SAFETY: We have exclusive access to the component, so by extension
-        // we have exclusive access to the corresponding `ComponentTicks`.
-        let ptr = unsafe { ptr.assert_unique() };
-        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-        let added_tick = unsafe {
-            column
-                .get_added_ticks_unchecked(TableRow::new(self.table_row))
-                .deref_mut()
-        };
-        let changed_tick = unsafe {
-            column
-                .get_changed_ticks_unchecked(TableRow::new(self.table_row))
-                .deref_mut()
-        };
-        changed_tick
-            .is_newer_than(self.last_run, self.this_run)
-            .then_some(Mut::new(
-                trait_object,
-                added_tick,
-                changed_tick,
-                self.last_run,
-                self.this_run,
-            ))
-            .or_else(|| self.next())
+        loop {
+            // Iterate the remaining table components that are registered,
+            // until we find one that exists in the table.
+            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
+            let ptr = unsafe {
+                column
+                    .get_data_ptr()
+                    .byte_add(self.table_row * meta.size_bytes)
+            };
+            // SAFETY: The instance of `WriteTraits` that created this iterator
+            // has exclusive access to all table components registered with the trait.
+            //
+            // Since `self.table_row` is guaranteed to be unique, we know that other instances
+            // of `WriteTableTraitsIter` will not conflict with this pointer.
+            //
+            // SAFETY: We have exclusive access to the component, so by extension
+            // we have exclusive access to the corresponding `ComponentTicks`.
+            let ptr = unsafe { ptr.assert_unique() };
+            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+            let added_tick = unsafe {
+                column
+                    .get_added_ticks_unchecked(TableRow::new(self.table_row))
+                    .deref_mut()
+            };
+            let changed_tick = unsafe {
+                column
+                    .get_changed_ticks_unchecked(TableRow::new(self.table_row))
+                    .deref_mut()
+            };
+            if changed_tick.is_newer_than(self.last_run, self.this_run) {
+                return Some(Mut::new(
+                    trait_object,
+                    added_tick,
+                    changed_tick,
+                    self.last_run,
+                    self.this_run,
+                ));
+            }
+        }
     }
 }
 
@@ -775,78 +778,80 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedWriteSparseTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining sparse set components we have registered,
-        // until we find one that exists in the archetype.
-        let ((ptr, component_ticks), meta) =
-            unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                |(&component, meta)| {
-                    self.sparse_sets
-                        .get(component)
-                        .and_then(|set| set.get_with_ticks(self.entity))
-                        .zip(Some(meta))
-                },
-            )?;
+        loop {
+            // Iterate the remaining sparse set components we have registered,
+            // until we find one that exists in the archetype.
+            let ((ptr, component_ticks), meta) =
+                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
+                    |(&component, meta)| {
+                        self.sparse_sets
+                            .get(component)
+                            .and_then(|set| set.get_with_ticks(self.entity))
+                            .zip(Some(meta))
+                    },
+                )?;
 
-        // SAFETY: The instance of `WriteTraits` that created this iterator
-        // has exclusive access to all sparse set components registered with the trait.
-        //
-        // Since `self.entity` is guaranteed to be unique, we know that other instances
-        // of `WriteSparseTraitsIter` will not conflict with this pointer.
-        let ptr = unsafe { ptr.assert_unique() };
-        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-        // SAFETY: We have exclusive access to the component, so by extension
-        // we have exclusive access to the corresponding `ComponentTicks`.
-        let added_tick = unsafe { component_ticks.added.deref_mut() };
-        let changed_tick = unsafe { component_ticks.changed.deref_mut() };
-        added_tick
-            .is_newer_than(self.last_run, self.this_run)
-            .then_some(Mut::new(
-                trait_object,
-                added_tick,
-                changed_tick,
-                self.last_run,
-                self.this_run,
-            ))
-            .or_else(|| self.next())
+            // SAFETY: The instance of `WriteTraits` that created this iterator
+            // has exclusive access to all sparse set components registered with the trait.
+            //
+            // Since `self.entity` is guaranteed to be unique, we know that other instances
+            // of `WriteSparseTraitsIter` will not conflict with this pointer.
+            let ptr = unsafe { ptr.assert_unique() };
+            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+            // SAFETY: We have exclusive access to the component, so by extension
+            // we have exclusive access to the corresponding `ComponentTicks`.
+            let added_tick = unsafe { component_ticks.added.deref_mut() };
+            let changed_tick = unsafe { component_ticks.changed.deref_mut() };
+            if added_tick.is_newer_than(self.last_run, self.this_run) {
+                return Some(Mut::new(
+                    trait_object,
+                    added_tick,
+                    changed_tick,
+                    self.last_run,
+                    self.this_run,
+                ));
+            }
+        }
     }
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedWriteSparseTraitsIter<'a, Trait> {
     type Item = Mut<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
-        // Iterate the remaining sparse set components we have registered,
-        // until we find one that exists in the archetype.
-        let ((ptr, component_ticks), meta) =
-            unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                |(&component, meta)| {
-                    self.sparse_sets
-                        .get(component)
-                        .and_then(|set| set.get_with_ticks(self.entity))
-                        .zip(Some(meta))
-                },
-            )?;
+        loop {
+            // Iterate the remaining sparse set components we have registered,
+            // until we find one that exists in the archetype.
+            let ((ptr, component_ticks), meta) =
+                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
+                    |(&component, meta)| {
+                        self.sparse_sets
+                            .get(component)
+                            .and_then(|set| set.get_with_ticks(self.entity))
+                            .zip(Some(meta))
+                    },
+                )?;
 
-        // SAFETY: The instance of `WriteTraits` that created this iterator
-        // has exclusive access to all sparse set components registered with the trait.
-        //
-        // Since `self.entity` is guaranteed to be unique, we know that other instances
-        // of `WriteSparseTraitsIter` will not conflict with this pointer.
-        let ptr = unsafe { ptr.assert_unique() };
-        let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-        // SAFETY: We have exclusive access to the component, so by extension
-        // we have exclusive access to the corresponding `ComponentTicks`.
-        let added_tick = unsafe { component_ticks.added.deref_mut() };
-        let changed_tick = unsafe { component_ticks.changed.deref_mut() };
-        changed_tick
-            .is_newer_than(self.last_run, self.this_run)
-            .then_some(Mut::new(
-                trait_object,
-                added_tick,
-                changed_tick,
-                self.last_run,
-                self.this_run,
-            ))
-            .or_else(|| self.next())
+            // SAFETY: The instance of `WriteTraits` that created this iterator
+            // has exclusive access to all sparse set components registered with the trait.
+            //
+            // Since `self.entity` is guaranteed to be unique, we know that other instances
+            // of `WriteSparseTraitsIter` will not conflict with this pointer.
+            let ptr = unsafe { ptr.assert_unique() };
+            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
+            // SAFETY: We have exclusive access to the component, so by extension
+            // we have exclusive access to the corresponding `ComponentTicks`.
+            let added_tick = unsafe { component_ticks.added.deref_mut() };
+            let changed_tick = unsafe { component_ticks.changed.deref_mut() };
+            if changed_tick.is_newer_than(self.last_run, self.this_run) {
+                return Some(Mut::new(
+                    trait_object,
+                    added_tick,
+                    changed_tick,
+                    self.last_run,
+                    self.this_run,
+                ));
+            }
+        }
     }
 }
 
