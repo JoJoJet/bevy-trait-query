@@ -2,7 +2,7 @@ use crate::{
     debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
     TraitQuery, TraitQueryState,
 };
-use bevy::ecs::change_detection::{Mut, Ref};
+use bevy::ecs::change_detection::{DetectChanges, Mut, Ref};
 use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -29,40 +29,10 @@ pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
 }
 
 /// Read-access to all components implementing a trait for a given entity.
-pub struct AddedReadTraits<'a, Trait: ?Sized + TraitQuery> {
-    // Read-only access to the global trait registry.
-    // Since no one outside of the crate can name the registry type,
-    // we can be confident that no write accesses will conflict with this.
-    registry: &'a TraitImplRegistry<Trait>,
-    table: &'a Table,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-    /// This grants shared access to all sparse set components,
-    /// but in practice we will only read the components specified in `self.registry`.
-    /// The fetch impl registers read-access for all of these components,
-    /// so there will be no runtime conflicts.
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
+pub struct AddedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
 
 /// Read-access to all components implementing a trait for a given entity.
-pub struct ChangedReadTraits<'a, Trait: ?Sized + TraitQuery> {
-    // Read-only access to the global trait registry.
-    // Since no one outside of the crate can name the registry type,
-    // we can be confident that no write accesses will conflict with this.
-    registry: &'a TraitImplRegistry<Trait>,
-    table: &'a Table,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-    /// This grants shared access to all sparse set components,
-    /// but in practice we will only read the components specified in `self.registry`.
-    /// The fetch impl registers read-access for all of these components,
-    /// so there will be no runtime conflicts.
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
+pub struct ChangedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
 
 #[doc(hidden)]
 pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
@@ -78,44 +48,8 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
 }
 
 #[doc(hidden)]
-pub struct AddedReadTableTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-    // Grants shared access to the components corresponding to `components` in this table.
-    // Not all components are guaranteed to exist in the table.
-    table: &'a Table,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
 pub type CombinedReadTraitsIter<'a, Trait> =
     std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
-
-#[doc(hidden)]
-pub type CombinedAddedReadTraitsIter<'a, Trait> =
-    std::iter::Chain<AddedReadTableTraitsIter<'a, Trait>, AddedReadSparseTraitsIter<'a, Trait>>;
-
-#[doc(hidden)]
-pub type CombinedChangedReadTraitsIter<'a, Trait> =
-    std::iter::Chain<ChangedReadTableTraitsIter<'a, Trait>, ChangedReadSparseTraitsIter<'a, Trait>>;
-
-#[doc(hidden)]
-pub struct ChangedReadTableTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-    // Grants shared access to the components corresponding to `components` in this table.
-    // Not all components are guaranteed to exist in the table.
-    table: &'a Table,
-    last_run: Tick,
-    this_run: Tick,
-}
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = Ref<'a, Trait>;
@@ -147,80 +81,8 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
     }
 }
 
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadTableTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining table components that are registered,
-            // until we find one that exists in the table and has also been added since last tick.
-            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-
-            // SAFETY: we know that the `table_row` is a valid index.
-            let column_ticks = unsafe { column.get_ticks_unchecked(self.table_row) };
-            if column_ticks.is_added(self.last_run, self.this_run) {
-                // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
-                let ptr = unsafe {
-                    column
-                        .get_data_ptr()
-                        .byte_add(self.table_row.index() * meta.size_bytes)
-                };
-                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
-            }
-        }
-    }
-}
-
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadTableTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining table components that are registered,
-            // until we find one that exists in the table and has changed since the last tick.
-            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-
-            // SAFETY: we know that the `table_row` is a valid index.
-            let column_ticks = unsafe { column.get_ticks_unchecked(self.table_row) };
-            if column_ticks.is_changed(self.last_run, self.this_run) {
-                // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read
-                let ptr = unsafe {
-                    column
-                        .get_data_ptr()
-                        .byte_add(self.table_row.index() * meta.size_bytes)
-                };
-                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
-            }
-        }
-    }
-}
-
 #[doc(hidden)]
 pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    entity: Entity,
-    // Grants shared access to the components corresponding to both `components` and `entity`.
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct AddedReadSparseTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    entity: Entity,
-    // Grants shared access to the components corresponding to both `components` and `entity`.
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct ChangedReadSparseTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
@@ -256,53 +118,33 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
     }
 }
 
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedReadSparseTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining sparse set components that are registered,
-            // until we find one that exists in the archetype.
-            let ((ptr, ticks_ptr), meta) =
-                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                    |(&component, meta)| {
-                        self.sparse_sets
-                            .get(component)
-                            .and_then(|set| set.get_with_ticks(self.entity))
-                            .zip(Some(meta))
-                    },
-                )?;
+#[doc(hidden)]
+pub struct AddedIteratorFilter<I>(I);
 
-            // SAFETY: `AddedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
-            let added_ticks = unsafe { ticks_ptr.added.deref() };
-            if added_ticks.is_newer_than(self.last_run, self.this_run) {
-                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
-            }
-        }
+impl<I> Iterator for AddedIteratorFilter<I>
+where
+    I: Iterator,
+    I::Item: DetectChanges,
+{
+    type Item = <I as Iterator>::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.find(DetectChanges::is_added)
     }
 }
 
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedReadSparseTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining sparse set components that are registered,
-            // until we find one that exists in the archetype.
-            let ((ptr, tick_cells), meta) =
-                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                    |(&component, meta)| {
-                        self.sparse_sets
-                            .get(component)
-                            .and_then(|set| set.get_with_ticks(self.entity))
-                            .zip(Some(meta))
-                    },
-                )?;
+#[doc(hidden)]
+pub struct ChangedIteratorFilter<I>(I);
 
-            // SAFETY: `ChangedReadTraits` registers read-access, so the scheduler prevents write-access from occurring while we read.
-            let changed_ticks = unsafe { tick_cells.changed.deref() };
-            if changed_ticks.is_newer_than(self.last_run, self.this_run) {
-                return Some(unsafe { meta.dyn_ctor.cast(ptr) });
-            }
-        }
+impl<I> Iterator for ChangedIteratorFilter<I>
+where
+    I: Iterator,
+    I::Item: DetectChanges,
+{
+    type Item = <I as Iterator>::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.find(DetectChanges::is_changed)
     }
 }
 
@@ -332,52 +174,20 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedAddedReadTraitsIter<'w, Trait>;
+    type Item = Ref<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = AddedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = AddedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        AddedIteratorFilter(self.0.into_iter())
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedChangedReadTraitsIter<'w, Trait>;
+    type Item = Ref<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = ChangedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = ChangedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        ChangedIteratorFilter(self.0.into_iter())
     }
 }
 
@@ -407,52 +217,20 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &AddedReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedAddedReadTraitsIter<'w, Trait>;
+    type Item = Ref<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = AddedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = AddedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        AddedIteratorFilter((&self.0).into_iter())
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ChangedReadTraits<'w, Trait> {
-    type Item = &'w Trait;
-    type IntoIter = CombinedChangedReadTraitsIter<'w, Trait>;
+    type Item = Ref<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = ChangedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = ChangedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        ChangedIteratorFilter((&self.0).into_iter())
     }
 }
 
@@ -465,14 +243,14 @@ impl<'w, Trait: ?Sized + TraitQuery> ReadTraits<'w, Trait> {
 
 impl<'w, Trait: ?Sized + TraitQuery> AddedReadTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> CombinedAddedReadTraitsIter<'w, Trait> {
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
         self.into_iter()
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> ChangedReadTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> CombinedChangedReadTraitsIter<'w, Trait> {
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
         self.into_iter()
     }
 }
@@ -508,61 +286,15 @@ pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
 
 /// Write-access to all components implementing a trait for a given entity, and have been newly
 /// added in the last tick.
-pub struct AddedWriteTraits<'a, Trait: ?Sized + TraitQuery> {
-    // Read-only access to the global trait registry.
-    // Since no one outside of the crate can name the registry type,
-    // we can be confident that no write accesses will conflict with this.
-    registry: &'a TraitImplRegistry<Trait>,
-
-    table: &'a Table,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-
-    last_run: Tick,
-    this_run: Tick,
-
-    /// This grants shared mutable access to all sparse set components,
-    /// but in practice we will only modify the components specified in `self.registry`.
-    /// The fetch impl registers write-access for all of these components,
-    /// guaranteeing us exclusive access at runtime.
-    sparse_sets: &'a SparseSets,
-}
+pub struct AddedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
 
 /// Write-access to all components implementing a trait for a given entity, and have been changed in
 /// the last tick.
-pub struct ChangedWriteTraits<'a, Trait: ?Sized + TraitQuery> {
-    // Read-only access to the global trait registry.
-    // Since no one outside of the crate can name the registry type,
-    // we can be confident that no write accesses will conflict with this.
-    registry: &'a TraitImplRegistry<Trait>,
-
-    table: &'a Table,
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-
-    last_run: Tick,
-    this_run: Tick,
-
-    /// This grants shared mutable access to all sparse set components,
-    /// but in practice we will only modify the components specified in `self.registry`.
-    /// The fetch impl registers write-access for all of these components,
-    /// guaranteeing us exclusive access at runtime.
-    sparse_sets: &'a SparseSets,
-}
+pub struct ChangedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
 
 #[doc(hidden)]
 pub type CombinedWriteTraitsIter<'a, Trait> =
     std::iter::Chain<WriteTableTraitsIter<'a, Trait>, WriteSparseTraitsIter<'a, Trait>>;
-
-#[doc(hidden)]
-pub type CombinedAddedWriteTraitsIter<'a, Trait> =
-    std::iter::Chain<AddedWriteTableTraitsIter<'a, Trait>, AddedWriteSparseTraitsIter<'a, Trait>>;
-
-#[doc(hidden)]
-pub type CombinedChangedWriteTraitsIter<'a, Trait> = std::iter::Chain<
-    ChangedWriteTableTraitsIter<'a, Trait>,
-    ChangedWriteSparseTraitsIter<'a, Trait>,
->;
 
 #[doc(hidden)]
 pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
@@ -572,34 +304,6 @@ pub struct WriteTableTraitsIter<'a, Trait: ?Sized> {
     table: &'a Table,
     /// SAFETY: Given the same trait type and same archetype,
     /// no two instances of this struct may have the same `table_row`.
-    table_row: TableRow,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct AddedWriteTableTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    table: &'a Table,
-    /// SAFETY: Given the same trait type and same archetype,
-    /// no two instances of this struct may have the same `table_row`.
-    // SAFETY: must correspond to a valid row in `self.table`
-    table_row: TableRow,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct ChangedWriteTableTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    table: &'a Table,
-    /// SAFETY: Given the same trait type and same archetype,
-    /// no two instances of this struct may have the same `table_row`.
-    // SAFETY: must correspond to a valid row in `self.table`
     table_row: TableRow,
     last_run: Tick,
     this_run: Tick,
@@ -642,120 +346,8 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
     }
 }
 
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedWriteTableTraitsIter<'a, Trait> {
-    type Item = Mut<'a, Trait>;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining table components that are registered,
-            // until we find one that exists in the table.
-            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-            let ptr = unsafe {
-                column
-                    .get_data_ptr()
-                    .byte_add(self.table_row.index() * meta.size_bytes)
-            };
-            // SAFETY: The instance of `WriteTraits` that created this iterator
-            // has exclusive access to all table components registered with the trait.
-            //
-            // Since `self.table_row` is guaranteed to be unique, we know that other instances
-            // of `WriteTableTraitsIter` will not conflict with this pointer.
-            //
-            // SAFETY: We have exclusive access to the component, so by extension
-            // we have exclusive access to the corresponding `ComponentTicks`.
-            let ptr = unsafe { ptr.assert_unique() };
-            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-            let added_tick =
-                unsafe { column.get_added_ticks_unchecked(self.table_row).deref_mut() };
-            let changed_tick = unsafe {
-                column
-                    .get_changed_ticks_unchecked(self.table_row)
-                    .deref_mut()
-            };
-            if added_tick.is_newer_than(self.last_run, self.this_run) {
-                return Some(Mut::new(
-                    trait_object,
-                    added_tick,
-                    changed_tick,
-                    self.last_run,
-                    self.this_run,
-                ));
-            }
-        }
-    }
-}
-
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedWriteTableTraitsIter<'a, Trait> {
-    type Item = Mut<'a, Trait>;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining table components that are registered,
-            // until we find one that exists in the table.
-            let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-                .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-            let ptr = unsafe {
-                column
-                    .get_data_ptr()
-                    .byte_add(self.table_row.index() * meta.size_bytes)
-            };
-            // SAFETY: The instance of `WriteTraits` that created this iterator
-            // has exclusive access to all table components registered with the trait.
-            //
-            // Since `self.table_row` is guaranteed to be unique, we know that other instances
-            // of `WriteTableTraitsIter` will not conflict with this pointer.
-            //
-            // SAFETY: We have exclusive access to the component, so by extension
-            // we have exclusive access to the corresponding `ComponentTicks`.
-            let ptr = unsafe { ptr.assert_unique() };
-            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-            let added_tick =
-                unsafe { column.get_added_ticks_unchecked(self.table_row).deref_mut() };
-            let changed_tick = unsafe {
-                column
-                    .get_changed_ticks_unchecked(self.table_row)
-                    .deref_mut()
-            };
-            if changed_tick.is_newer_than(self.last_run, self.this_run) {
-                return Some(Mut::new(
-                    trait_object,
-                    added_tick,
-                    changed_tick,
-                    self.last_run,
-                    self.this_run,
-                ));
-            }
-        }
-    }
-}
-
 #[doc(hidden)]
 pub struct WriteSparseTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    /// SAFETY: Given the same trait type and same archetype,
-    /// no two instances of this struct may have the same `entity`.
-    entity: Entity,
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct AddedWriteSparseTraitsIter<'a, Trait: ?Sized> {
-    // SAFETY: These two iterators must have equal length.
-    components: std::slice::Iter<'a, ComponentId>,
-    meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
-    /// SAFETY: Given the same trait type and same archetype,
-    /// no two instances of this struct may have the same `entity`.
-    entity: Entity,
-    sparse_sets: &'a SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-#[doc(hidden)]
-pub struct ChangedWriteSparseTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
     meta: std::slice::Iter<'a, TraitImplMeta<Trait>>,
@@ -804,86 +396,6 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
     }
 }
 
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for AddedWriteSparseTraitsIter<'a, Trait> {
-    type Item = Mut<'a, Trait>;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining sparse set components we have registered,
-            // until we find one that exists in the archetype.
-            let ((ptr, component_ticks), meta) =
-                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                    |(&component, meta)| {
-                        self.sparse_sets
-                            .get(component)
-                            .and_then(|set| set.get_with_ticks(self.entity))
-                            .zip(Some(meta))
-                    },
-                )?;
-
-            // SAFETY: The instance of `WriteTraits` that created this iterator
-            // has exclusive access to all sparse set components registered with the trait.
-            //
-            // Since `self.entity` is guaranteed to be unique, we know that other instances
-            // of `WriteSparseTraitsIter` will not conflict with this pointer.
-            let ptr = unsafe { ptr.assert_unique() };
-            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-            // SAFETY: We have exclusive access to the component, so by extension
-            // we have exclusive access to the corresponding `ComponentTicks`.
-            let added_tick = unsafe { component_ticks.added.deref_mut() };
-            let changed_tick = unsafe { component_ticks.changed.deref_mut() };
-            if added_tick.is_newer_than(self.last_run, self.this_run) {
-                return Some(Mut::new(
-                    trait_object,
-                    added_tick,
-                    changed_tick,
-                    self.last_run,
-                    self.this_run,
-                ));
-            }
-        }
-    }
-}
-
-impl<'a, Trait: ?Sized + TraitQuery> Iterator for ChangedWriteSparseTraitsIter<'a, Trait> {
-    type Item = Mut<'a, Trait>;
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Iterate the remaining sparse set components we have registered,
-            // until we find one that exists in the archetype.
-            let ((ptr, component_ticks), meta) =
-                unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-                    |(&component, meta)| {
-                        self.sparse_sets
-                            .get(component)
-                            .and_then(|set| set.get_with_ticks(self.entity))
-                            .zip(Some(meta))
-                    },
-                )?;
-
-            // SAFETY: The instance of `WriteTraits` that created this iterator
-            // has exclusive access to all sparse set components registered with the trait.
-            //
-            // Since `self.entity` is guaranteed to be unique, we know that other instances
-            // of `WriteSparseTraitsIter` will not conflict with this pointer.
-            let ptr = unsafe { ptr.assert_unique() };
-            let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
-            // SAFETY: We have exclusive access to the component, so by extension
-            // we have exclusive access to the corresponding `ComponentTicks`.
-            let added_tick = unsafe { component_ticks.added.deref_mut() };
-            let changed_tick = unsafe { component_ticks.changed.deref_mut() };
-            if changed_tick.is_newer_than(self.last_run, self.this_run) {
-                return Some(Mut::new(
-                    trait_object,
-                    added_tick,
-                    changed_tick,
-                    self.last_run,
-                    self.this_run,
-                ));
-            }
-        }
-    }
-}
-
 impl<'w, Trait: ?Sized + TraitQuery> WriteTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
     pub fn iter(&self) -> CombinedReadTraitsIter<'_, Trait> {
@@ -897,22 +409,22 @@ impl<'w, Trait: ?Sized + TraitQuery> WriteTraits<'w, Trait> {
 
 impl<'w, Trait: ?Sized + TraitQuery> AddedWriteTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> CombinedAddedReadTraitsIter<'_, Trait> {
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
         self.into_iter()
     }
     /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
-    pub fn iter_mut(&mut self) -> CombinedAddedWriteTraitsIter<'_, Trait> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
         self.into_iter()
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> ChangedWriteTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> CombinedChangedReadTraitsIter<'_, Trait> {
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
         self.into_iter()
     }
     /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
-    pub fn iter_mut(&mut self) -> CombinedChangedWriteTraitsIter<'_, Trait> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
         self.into_iter()
     }
 }
@@ -944,51 +456,19 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedWriteTraits<'w, Trait> {
     type Item = Mut<'w, Trait>;
-    type IntoIter = CombinedAddedWriteTraitsIter<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = AddedWriteTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = AddedWriteSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        AddedIteratorFilter(self.0.into_iter())
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedWriteTraits<'w, Trait> {
     type Item = Mut<'w, Trait>;
-    type IntoIter = CombinedChangedWriteTraitsIter<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = ChangedWriteTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = ChangedWriteSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        ChangedIteratorFilter(self.0.into_iter())
     }
 }
 
@@ -1022,54 +502,22 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local AddedWriteTraits<'world, Trait>
 {
-    type Item = &'local Trait;
-    type IntoIter = CombinedAddedReadTraitsIter<'local, Trait>;
+    type Item = Ref<'local, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = AddedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = AddedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        AddedIteratorFilter((&self.0).into_iter())
     }
 }
 
 impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local ChangedWriteTraits<'world, Trait>
 {
-    type Item = &'local Trait;
-    type IntoIter = CombinedChangedReadTraitsIter<'local, Trait>;
+    type Item = Ref<'local, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = ChangedReadTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = ChangedReadSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        ChangedIteratorFilter((&self.0).into_iter())
     }
 }
 
@@ -1104,26 +552,10 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local mut AddedWriteTraits<'world, Trait>
 {
     type Item = Mut<'local, Trait>;
-    type IntoIter = CombinedAddedWriteTraitsIter<'local, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = AddedWriteTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = AddedWriteSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        AddedIteratorFilter((&mut self.0).into_iter())
     }
 }
 
@@ -1131,26 +563,10 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local mut ChangedWriteTraits<'world, Trait>
 {
     type Item = Mut<'local, Trait>;
-    type IntoIter = CombinedChangedWriteTraitsIter<'local, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        let table = ChangedWriteTableTraitsIter {
-            components: self.registry.table_components.iter(),
-            meta: self.registry.table_meta.iter(),
-            table: self.table,
-            table_row: self.table_row,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        let sparse = ChangedWriteSparseTraitsIter {
-            components: self.registry.sparse_components.iter(),
-            meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
-            sparse_sets: self.sparse_sets,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        };
-        table.chain(sparse)
+        ChangedIteratorFilter((&mut self.0).into_iter())
     }
 }
 
@@ -1377,14 +793,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
     ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
-        ChangedReadTraits {
+        ChangedReadTraits(ReadTraits {
             registry: fetch.registry,
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
-        }
+        })
     }
 
     #[inline]
@@ -1500,14 +916,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
-        AddedReadTraits {
+        AddedReadTraits(ReadTraits {
             registry: fetch.registry,
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
-        }
+        })
     }
 
     #[inline]
@@ -1748,14 +1164,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
     ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
-        AddedWriteTraits {
+        AddedWriteTraits(WriteTraits {
             registry: fetch.registry,
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
-        }
+        })
     }
 
     #[inline]
@@ -1872,14 +1288,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
     ) -> Self::Item<'w> {
         let table = fetch.table.unwrap_or_else(|| debug_unreachable());
 
-        ChangedWriteTraits {
+        ChangedWriteTraits(WriteTraits {
             registry: fetch.registry,
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
-        }
+        })
     }
 
     #[inline]
