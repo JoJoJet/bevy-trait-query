@@ -16,11 +16,11 @@ bevy-trait-query-impl = { path = "proc-macro", version = "0.2" }
 
 [dependencies.bevy]
 git = "https://github.com/bevyengine/bevy"
-rev = "21e1893c4f39bfd33967145810479d56b03486ce"
+rev = "aeeb20ec4c43db07c2690ce926169ed9d6550d93"
 default-features = false
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 
 [[bench]]
 name = "concrete"
