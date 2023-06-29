@@ -20,7 +20,7 @@ rev = "aeeb20ec4c43db07c2690ce926169ed9d6550d93"
 default-features = false
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 
 [[bench]]
 name = "concrete"
