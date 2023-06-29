@@ -96,7 +96,7 @@
 //! # fn show_tooltips() {}
 //! #
 //! # fn main() {
-//! #     App::new().add_plugins(DefaultPlugins).add_plugin(TooltipPlugin).update();
+//! #     App::new().add_plugins((DefaultPlugins, TooltipPlugin)).update();
 //! # }
 //! ```
 //!
