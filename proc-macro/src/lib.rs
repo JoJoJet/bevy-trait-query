@@ -162,7 +162,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn init_fetch<'w>(
-                world: &'w #imports::World,
+                world: #imports::UnsafeWorldCell<'w>,
                 state: &Self::State,
                 last_run: #imports::Tick,
                 this_run: #imports::Tick,
@@ -270,7 +270,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
             #[inline]
             unsafe fn init_fetch<'w>(
-                world: &'w #imports::World,
+                world: #imports::UnsafeWorldCell<'w>,
                 state: &Self::State,
                 last_run: #imports::Tick,
                 this_run: #imports::Tick,
