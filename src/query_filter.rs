@@ -1,10 +1,12 @@
-use crate::{debug_unreachable, TraitImplRegistry, TraitQuery, TraitQueryState};
+use crate::{
+    debug_unreachable, trait_registry_error, TraitImplRegistry, TraitQuery, TraitQueryState,
+};
 use bevy::ecs::archetype::{Archetype, ArchetypeComponentId};
 use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{Access, FilteredAccess, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{ComponentSparseSet, SparseSets, Table, TableRow};
-use bevy::ecs::world::World;
+use bevy::ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy::ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
@@ -49,13 +51,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<'a, Tr
     }
 
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             storage: ChangeDetectionStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
@@ -203,13 +207,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<'a, 
     }
 
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             storage: ChangeDetectionStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
             last_run,

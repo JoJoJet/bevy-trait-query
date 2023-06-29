@@ -1282,13 +1282,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> ReadAllTraitsFetch<'w, Trait> {
         ReadAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
@@ -1403,13 +1405,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> ReadAllTraitsFetch<'w, Trait> {
         ReadAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
@@ -1648,13 +1652,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
         WriteAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
@@ -1770,13 +1776,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
         WriteAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run,

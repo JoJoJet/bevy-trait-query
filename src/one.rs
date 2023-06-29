@@ -286,7 +286,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
@@ -465,7 +465,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
@@ -854,7 +854,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
@@ -1069,7 +1069,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trai
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
