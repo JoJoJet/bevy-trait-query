@@ -96,7 +96,7 @@
 //! # fn show_tooltips() {}
 //! #
 //! # fn main() {
-//! #     App::new().add_plugins(DefaultPlugins).add_plugin(TooltipPlugin).update();
+//! #     App::new().add_plugins((DefaultPlugins, TooltipPlugin)).update();
 //! # }
 //! ```
 //!
@@ -411,7 +411,7 @@ pub mod imports {
             Access, Added, Changed, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery,
         },
         storage::{Table, TableRow},
-        world::World,
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 }
 
@@ -524,4 +524,10 @@ unsafe fn debug_unreachable() -> ! {
 
     #[cfg(not(debug_assertions))]
     std::hint::unreachable_unchecked();
+}
+
+#[inline(never)]
+#[cold]
+fn trait_registry_error() -> ! {
+    panic!("The trait query registry has not been initialized; did you forget to register your traits with the world?")
 }

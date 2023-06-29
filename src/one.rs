@@ -4,6 +4,7 @@ use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{ComponentSparseSet, SparseSets, TableRow};
+use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::ecs::world::World;
 use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -108,7 +109,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
@@ -643,7 +644,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,

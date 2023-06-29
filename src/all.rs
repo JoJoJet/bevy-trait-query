@@ -1,11 +1,13 @@
 use crate::{
-    debug_unreachable, zip_exact, TraitImplMeta, TraitImplRegistry, TraitQuery, TraitQueryState,
+    debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
+    TraitQuery, TraitQueryState,
 };
 use bevy::ecs::change_detection::Mut;
 use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::storage::{SparseSets, Table, TableRow};
+use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::ecs::world::World;
 use bevy::ptr::UnsafeCellDeref;
 
@@ -1159,13 +1161,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
         ReadAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run: Tick::new(0),
@@ -1520,13 +1524,15 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
         WriteAllTraitsFetch {
-            registry: world.resource(),
+            registry: world
+                .get_resource()
+                .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
