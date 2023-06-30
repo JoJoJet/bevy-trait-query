@@ -599,7 +599,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AddedAll<&'a 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for ChangedAll<&'a Trait> {}
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     type Item<'w> = ReadTraits<'w, Trait>;
@@ -722,7 +722,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 }
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait> {
     type Item<'w> = ChangedReadTraits<'w, Trait>;
@@ -845,7 +845,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
 }
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     type Item<'w> = AddedReadTraits<'w, Trait>;
@@ -968,7 +968,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
 }
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
@@ -1092,7 +1092,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 }
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trait> {
     type Item<'w> = AddedWriteTraits<'w, Trait>;
@@ -1216,7 +1216,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 }
 
 /// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
+/// This is known to match the set of components in the TraitQueryState,
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Trait> {
     type Item<'w> = ChangedWriteTraits<'w, Trait>;
