@@ -256,7 +256,7 @@ impl<'w, Trait: ?Sized + TraitQuery> ChangedReadTraits<'w, Trait> {
 }
 
 #[doc(hidden)]
-pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
+pub struct AllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
     table: Option<&'w Table>,
     sparse_sets: &'w SparseSets,
@@ -570,15 +570,6 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     }
 }
 
-#[doc(hidden)]
-pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
-    registry: &'w TraitImplRegistry<Trait>,
-    table: Option<&'w Table>,
-    sparse_sets: &'w SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 ///
 /// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
@@ -603,7 +594,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for ChangedAll<&'
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     type Item<'w> = ReadTraits<'w, Trait>;
-    type Fetch<'w> = ReadAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -619,7 +610,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
-        ReadAllTraitsFetch {
+        AllTraitsFetch {
             registry: world
                 .get_resource()
                 .unwrap_or_else(|| trait_registry_error()),
@@ -632,7 +623,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadAllTraitsFetch {
+        AllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
@@ -646,7 +637,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -655,7 +646,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 
     unsafe fn set_table<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -726,7 +717,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait> {
     type Item<'w> = ChangedReadTraits<'w, Trait>;
-    type Fetch<'w> = ReadAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -741,7 +732,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> ReadAllTraitsFetch<'w, Trait> {
+    ) -> Self::Fetch<'w> {
         <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
@@ -755,7 +746,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -764,7 +755,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
     }
 
     unsafe fn set_table<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -817,7 +808,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     type Item<'w> = AddedReadTraits<'w, Trait>;
-    type Fetch<'w> = ReadAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -832,7 +823,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> ReadAllTraitsFetch<'w, Trait> {
+    ) -> Self::Fetch<'w> {
         <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
@@ -846,7 +837,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -855,7 +846,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     }
 
     unsafe fn set_table<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -908,7 +899,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
-    type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -923,8 +914,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> WriteAllTraitsFetch<'w, Trait> {
-        WriteAllTraitsFetch {
+    ) -> Self::Fetch<'w> {
+        AllTraitsFetch {
             registry: world
                 .get_resource()
                 .unwrap_or_else(|| trait_registry_error()),
@@ -937,7 +928,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteAllTraitsFetch {
+        AllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
@@ -951,7 +942,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -961,7 +952,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -1032,7 +1023,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trait> {
     type Item<'w> = AddedWriteTraits<'w, Trait>;
-    type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -1047,7 +1038,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> WriteAllTraitsFetch<'w, Trait> {
+    ) -> Self::Fetch<'w> {
         <All<&'a mut Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
@@ -1061,7 +1052,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -1071,7 +1062,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -1126,7 +1117,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 /// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Trait> {
     type Item<'w> = ChangedWriteTraits<'w, Trait>;
-    type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -1141,7 +1132,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> WriteAllTraitsFetch<'w, Trait> {
+    ) -> Self::Fetch<'w> {
         <All<&'a mut Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
@@ -1155,7 +1146,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -1165,7 +1156,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {

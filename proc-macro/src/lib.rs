@@ -156,7 +156,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         #where_clause
         {
             type Item<'__w> = #my_crate::ReadTraits<'__w, #trait_object>;
-            type Fetch<'__w> = #my_crate::ReadAllTraitsFetch<'__w, #trait_object>;
+            type Fetch<'__w> = <#my_crate::All<&'__a #trait_object> as #imports::WorldQuery>::Fetch<'__w>;
             type ReadOnly = Self;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
@@ -264,7 +264,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         #where_clause
         {
             type Item<'__w> = #my_crate::WriteTraits<'__w, #trait_object>;
-            type Fetch<'__w> = #my_crate::WriteAllTraitsFetch<'__w, #trait_object>;
+            type Fetch<'__w> = <#my_crate::All<&'__a #trait_object> as #imports::WorldQuery>::Fetch<'__w>;
             type ReadOnly = &'__a #trait_object;
             type State = #my_crate::TraitQueryState<#trait_object>;
 
