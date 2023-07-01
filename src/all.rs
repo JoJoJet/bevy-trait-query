@@ -738,30 +738,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
-        _state: &Self::State,
+        state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> ReadAllTraitsFetch<'w, Trait> {
-        ReadAllTraitsFetch {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
-            table: None,
-            sparse_sets: &world.storages().sparse_sets,
-            last_run,
-            this_run,
-        }
+        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadAllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
+        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
     }
 
     const IS_DENSE: bool = false;
@@ -770,37 +756,30 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
     }
 
     unsafe fn set_table<'w>(
         fetch: &mut ReadAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
+        state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
     }
 
     #[inline]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
+        entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        ChangedReadTraits(ReadTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        })
+        ChangedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
     }
 
     #[inline]
@@ -808,14 +787,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<Trait>(),
-            );
-            access.add_read(component);
-        }
+        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
     }
 
     #[inline]
@@ -824,23 +796,19 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
+        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
     }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
-        TraitQueryState::init(world)
+        <All<&'a Trait> as WorldQuery>::init_state(world)
     }
     #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        state.matches_component_set_any(set_contains_id)
+        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
 
@@ -861,30 +829,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
-        _state: &Self::State,
+        state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> ReadAllTraitsFetch<'w, Trait> {
-        ReadAllTraitsFetch {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
-            table: None,
-            sparse_sets: &world.storages().sparse_sets,
-            last_run,
-            this_run,
-        }
+        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadAllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
+        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
     }
 
     const IS_DENSE: bool = false;
@@ -893,37 +847,30 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
     }
 
     unsafe fn set_table<'w>(
         fetch: &mut ReadAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
+        state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
     }
 
     #[inline]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
+        entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        AddedReadTraits(ReadTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        })
+        AddedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
     }
 
     #[inline]
@@ -931,14 +878,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<Trait>(),
-            );
-            access.add_read(component);
-        }
+        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
     }
 
     #[inline]
@@ -947,23 +887,19 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
+        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
     }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
-        TraitQueryState::init(world)
+        <All<&'a Trait> as WorldQuery>::init_state(world)
     }
     #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        state.matches_component_set_any(set_contains_id)
+        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
 
@@ -1108,30 +1044,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
-        _state: &Self::State,
+        state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
-        WriteAllTraitsFetch {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
-            table: None,
-            sparse_sets: &world.storages().sparse_sets,
-            last_run,
-            this_run,
-        }
+        <All<&'a mut Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteAllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
+        <All<&'a mut Trait> as WorldQuery>::clone_fetch(fetch)
     }
 
     const IS_DENSE: bool = false;
@@ -1140,38 +1062,31 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a mut Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
     }
 
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut WriteAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
+        state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a mut Trait> as WorldQuery>::set_table(fetch, state, table);
     }
 
     #[inline]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
+        entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        AddedWriteTraits(WriteTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        })
+        AddedWriteTraits(<All<&'a mut Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
     }
 
     #[inline]
@@ -1179,14 +1094,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-                std::any::type_name::<Trait>(),
-            );
-            access.add_write(component);
-        }
+        <All<&'a mut Trait> as WorldQuery>::update_component_access(state, access);
     }
 
     #[inline]
@@ -1195,23 +1103,21 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_write(archetype_component_id);
-            }
-        }
+        <All<&'a mut Trait> as WorldQuery>::update_archetype_component_access(
+            state, archetype, access,
+        );
     }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
-        TraitQueryState::init(world)
+        <All<&'a mut Trait> as WorldQuery>::init_state(world)
     }
     #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        state.matches_component_set_any(set_contains_id)
+        <All<&'a mut Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
 
@@ -1232,30 +1138,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
-        _state: &Self::State,
+        state: &Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> WriteAllTraitsFetch<'w, Trait> {
-        WriteAllTraitsFetch {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
-            table: None,
-            sparse_sets: &world.storages().sparse_sets,
-            last_run,
-            this_run,
-        }
+        <All<&'a mut Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
     }
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteAllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
+        <All<&'a mut Trait> as WorldQuery>::clone_fetch(fetch)
     }
 
     const IS_DENSE: bool = false;
@@ -1264,38 +1156,31 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a mut Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
     }
 
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut WriteAllTraitsFetch<'w, Trait>,
-        _state: &Self::State,
+        state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
-        fetch.table = Some(table);
+        <All<&'a mut Trait> as WorldQuery>::set_table(fetch, state, table);
     }
 
     #[inline]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
+        entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        let table = fetch.table.unwrap_or_else(|| debug_unreachable());
-
-        ChangedWriteTraits(WriteTraits {
-            registry: fetch.registry,
-            table,
-            table_row,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        })
+        ChangedWriteTraits(<All<&'a mut Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
     }
 
     #[inline]
@@ -1303,14 +1188,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
         state: &Self::State,
         access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
     ) {
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-                std::any::type_name::<Trait>(),
-            );
-            access.add_write(component);
-        }
+        <All<&'a mut Trait> as WorldQuery>::update_component_access(state, access);
     }
 
     #[inline]
@@ -1319,22 +1197,20 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Tr
         archetype: &bevy::ecs::archetype::Archetype,
         access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
     ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_write(archetype_component_id);
-            }
-        }
+        <All<&'a mut Trait> as WorldQuery>::update_archetype_component_access(
+            state, archetype, access,
+        );
     }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
-        TraitQueryState::init(world)
+        <All<&'a mut Trait> as WorldQuery>::init_state(world)
     }
     #[inline]
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        state.matches_component_set_any(set_contains_id)
+        <All<&'a mut Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
