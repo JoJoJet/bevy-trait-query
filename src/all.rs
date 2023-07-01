@@ -616,8 +616,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
         ReadAllTraitsFetch {
             registry: world
@@ -625,8 +625,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
                 .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
-            last_run: Tick::new(0),
-            this_run: Tick::new(0),
+            last_run,
+            this_run,
         }
     }
 
@@ -636,8 +636,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
-            last_run: Tick::new(0),
-            this_run: Tick::new(0),
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
