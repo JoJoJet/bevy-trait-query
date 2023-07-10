@@ -15,8 +15,7 @@ categories = ["game-development"]
 bevy-trait-query-impl = { path = "proc-macro", version = "0.2" }
 
 [dependencies.bevy]
-git = "https://github.com/bevyengine/bevy"
-rev = "aeeb20ec4c43db07c2690ce926169ed9d6550d93"
+version = "0.11"
 default-features = false
 
 [dev-dependencies]
