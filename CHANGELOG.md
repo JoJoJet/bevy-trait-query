@@ -1,8 +1,13 @@
 # Changelog
 
+## Version 0.3 (Bevy 0.11)
+
+* Added support for Bevy 0.11.
+* Updated the `syn` crate to version 2.0.
+
 ## Version 0.2.1
 
-### FIxed
+### Fixed
 
 * Fixed change detection reporting for trait queries.
 
