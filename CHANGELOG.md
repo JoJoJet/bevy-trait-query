@@ -1,8 +1,15 @@
 # Changelog
 
+## Version 0.3 (Bevy 0.11)
+
+* Added support for Bevy 0.11.
+* Updated the `syn` crate to version 2.0.
+* Trait queries now use bevy's built-in `Mut<T>` type for change detection;
+this crate's reimplementation of this type has been removed.
+
 ## Version 0.2.1
 
-### FIxed
+### Fixed
 
 * Fixed change detection reporting for trait queries.
 

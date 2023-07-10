@@ -1,6 +1,6 @@
 [package]
 name = "bevy-trait-query"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 
 description = "Implementation of trait queries for the bevy game engine"
@@ -12,11 +12,10 @@ categories = ["game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy-trait-query-impl = { path = "proc-macro", version = "0.2" }
+bevy-trait-query-impl = { path = "proc-macro", version = "0.3" }
 
 [dependencies.bevy]
-git = "https://github.com/bevyengine/bevy"
-rev = "aeeb20ec4c43db07c2690ce926169ed9d6550d93"
+version = "0.11"
 default-features = false
 
 [dev-dependencies]
