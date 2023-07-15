@@ -577,17 +577,17 @@ pub struct All<T: ?Sized>(T);
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
 /// the additional condition that they have been added since the last tick.
-pub struct AddedAll<T: ?Sized>(T);
+pub struct AllAdded<T: ?Sized>(T);
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
 /// the additional condition that they have also changed since the last tick.
-pub struct ChangedAll<T: ?Sized>(T);
+pub struct AllChanged<T: ?Sized>(T);
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait> {}
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AddedAll<&'a Trait> {}
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllAdded<&'a Trait> {}
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for ChangedAll<&'a Trait> {}
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllChanged<&'a Trait> {}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
@@ -715,7 +715,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait> {
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllChanged<&'a Trait> {
     type Item<'w> = ChangedReadTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -806,7 +806,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a Trait>
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a Trait> {
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllAdded<&'a Trait> {
     type Item<'w> = AddedReadTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -1021,7 +1021,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trait> {
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllAdded<&'a mut Trait> {
     type Item<'w> = AddedWriteTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
@@ -1115,7 +1115,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedAll<&'a mut Trai
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedAll<&'a mut Trait> {
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllChanged<&'a mut Trait> {
     type Item<'w> = ChangedWriteTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
