@@ -9,24 +9,24 @@ use bevy::ecs::world::World;
 use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
-pub struct ReadTraitFetch<'w, Trait: ?Sized> {
+pub struct OneTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
-    // in practice we will only read the components specified in the `FetchState`.
+    // in practice we will only access the components specified in the `FetchState`.
     // These accesses have been registered, which prevents runtime conflicts.
     sparse_sets: &'w SparseSets,
     // After `Fetch::set_archetype` or `set_table` has been called,
     // this will carry the component data and metadata for the first trait impl found in the archetype.
-    storage: ReadStorage<'w, Trait>,
+    storage: FetchStorage<'w, Trait>,
     last_run: Tick,
     this_run: Tick,
 }
 
-enum ReadStorage<'w, Trait: ?Sized> {
+enum FetchStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
         /// This points to one of the component table columns,
         /// corresponding to one of the `ComponentId`s in the fetch state.
-        /// The fetch impl registers read access for all of these components,
+        /// The fetch impl registers access for all of these components,
         /// so there will be no runtime conflicts.
         column: Ptr<'w>,
         added_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
@@ -35,43 +35,8 @@ enum ReadStorage<'w, Trait: ?Sized> {
     },
     SparseSet {
         /// This gives us access to one of the components implementing the trait.
-        /// The fetch impl registers read access for all components implementing the trait,
+        /// The fetch impl registers access for all components implementing the trait,
         /// so there will not be any runtime conflicts.
-        components: &'w ComponentSparseSet,
-        meta: TraitImplMeta<Trait>,
-    },
-}
-
-#[doc(hidden)]
-pub struct WriteTraitFetch<'w, Trait: ?Sized> {
-    // While we have shared mutable access to all sparse set components,
-    // in practice we will only modify the components specified in the `FetchState`.
-    // These accesses have been registered, which prevents runtime conflicts.
-    sparse_sets: &'w SparseSets,
-
-    // After `Fetch::set_archetype` or `set_table` has been called,
-    // this will carry the component data and metadata for the first trait impl found in the archetype.
-    storage: WriteStorage<'w, Trait>,
-
-    last_run: Tick,
-    this_run: Tick,
-}
-
-enum WriteStorage<'w, Trait: ?Sized> {
-    Uninit,
-    Table {
-        /// This is a shared mutable pointer to one of the component table columns,
-        /// corresponding to one of the `ComponentId`s in the fetch state.
-        /// The fetch impl registers write access for all of these components,
-        /// so there will be no runtime conflicts.
-        column: Ptr<'w>,
-        added_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        changed_ticks: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        meta: TraitImplMeta<Trait>,
-    },
-    SparseSet {
-        /// This gives us shared mutable access to one of the components implementing the trait.
-        /// The fetch impl registers write access for all components implementing the trait, so there will be no runtime conflicts.
         components: &'w ComponentSparseSet,
         meta: TraitImplMeta<Trait>,
     },
@@ -86,7 +51,7 @@ unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a T> {}
 // This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     type Item<'w> = Ref<'w, Trait>;
-    type Fetch<'w> = ReadTraitFetch<'w, Trait>;
+    type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -101,9 +66,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
-    ) -> ReadTraitFetch<'w, Trait> {
-        ReadTraitFetch {
-            storage: ReadStorage::Uninit,
+    ) -> OneTraitFetch<'w, Trait> {
+        OneTraitFetch {
+            storage: FetchStorage::Uninit,
             last_run: Tick::new(0),
             sparse_sets: &world.storages().sparse_sets,
             this_run: Tick::new(0),
@@ -112,22 +77,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadTraitFetch {
+        OneTraitFetch {
             storage: match fetch.storage {
-                ReadStorage::Uninit => ReadStorage::Uninit,
-                ReadStorage::Table {
+                FetchStorage::Uninit => FetchStorage::Uninit,
+                FetchStorage::Table {
                     column,
                     added_ticks,
                     changed_ticks,
                     meta,
-                } => ReadStorage::Table {
+                } => FetchStorage::Table {
                     column,
                     added_ticks,
                     changed_ticks,
                     meta,
                 },
-                ReadStorage::SparseSet { components, meta } => {
-                    ReadStorage::SparseSet { components, meta }
+                FetchStorage::SparseSet { components, meta } => {
+                    FetchStorage::SparseSet { components, meta }
                 }
             },
             last_run: Tick::new(0),
@@ -141,7 +106,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadTraitFetch<'w, Trait>,
+        fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -150,7 +115,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         // We check the table components first since it is faster to retrieve data of this type.
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                fetch.storage = ReadStorage::Table {
+                fetch.storage = FetchStorage::Table {
                     column: column.get_data_ptr(),
                     added_ticks: column.get_added_ticks_slice().into(),
                     changed_ticks: column.get_changed_ticks_slice().into(),
@@ -161,7 +126,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         }
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = fetch.sparse_sets.get(component) {
-                fetch.storage = ReadStorage::SparseSet {
+                fetch.storage = FetchStorage::SparseSet {
                     components: sparse_set,
                     meta,
                 };
@@ -174,14 +139,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut ReadTraitFetch<'w, Trait>,
+        fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                fetch.storage = ReadStorage::Table {
+                fetch.storage = FetchStorage::Table {
                     column: column.get_data_ptr(),
                     added_ticks: column.get_added_ticks_slice().into(),
                     changed_ticks: column.get_changed_ticks_slice().into(),
@@ -204,8 +169,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
-            ReadStorage::Uninit => debug_unreachable(),
-            ReadStorage::Table {
+            FetchStorage::Uninit => debug_unreachable(),
+            FetchStorage::Table {
                 column,
                 added_ticks,
                 changed_ticks,
@@ -221,7 +186,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
                     changed_ticks.get(table_row).deref(),
                 )
             }
-            ReadStorage::SparseSet { components, meta } => {
+            FetchStorage::SparseSet { components, meta } => {
                 dyn_ctor = meta.dyn_ctor;
                 let (ptr, ticks) = components
                     .get_with_ticks(entity)
@@ -291,7 +256,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 // This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
-    type Fetch<'w> = WriteTraitFetch<'w, Trait>;
+    type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type ReadOnly = One<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -306,9 +271,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> WriteTraitFetch<'w, Trait> {
-        WriteTraitFetch {
-            storage: WriteStorage::Uninit,
+    ) -> OneTraitFetch<'w, Trait> {
+        OneTraitFetch {
+            storage: FetchStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
             this_run,
@@ -317,22 +282,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteTraitFetch {
+        OneTraitFetch {
             storage: match fetch.storage {
-                WriteStorage::Uninit => WriteStorage::Uninit,
-                WriteStorage::Table {
+                FetchStorage::Uninit => FetchStorage::Uninit,
+                FetchStorage::Table {
                     column,
                     meta,
                     added_ticks,
                     changed_ticks,
-                } => WriteStorage::Table {
+                } => FetchStorage::Table {
                     column,
                     meta,
                     added_ticks,
                     changed_ticks,
                 },
-                WriteStorage::SparseSet { components, meta } => {
-                    WriteStorage::SparseSet { components, meta }
+                FetchStorage::SparseSet { components, meta } => {
+                    FetchStorage::SparseSet { components, meta }
                 }
             },
             sparse_sets: fetch.sparse_sets,
@@ -346,7 +311,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteTraitFetch<'w, Trait>,
+        fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -354,7 +319,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         // Search for a registered trait impl that is present in the archetype.
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                fetch.storage = WriteStorage::Table {
+                fetch.storage = FetchStorage::Table {
                     column: column.get_data_ptr(),
                     added_ticks: column.get_added_ticks_slice().into(),
                     changed_ticks: column.get_changed_ticks_slice().into(),
@@ -365,7 +330,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
             if let Some(sparse_set) = fetch.sparse_sets.get(component) {
-                fetch.storage = WriteStorage::SparseSet {
+                fetch.storage = FetchStorage::SparseSet {
                     components: sparse_set,
                     meta,
                 };
@@ -378,14 +343,14 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteTraitFetch<'w, Trait>,
+        fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
             if let Some(column) = table.get_column(component) {
-                fetch.storage = WriteStorage::Table {
+                fetch.storage = FetchStorage::Table {
                     column: column.get_data_ptr(),
                     added_ticks: column.get_added_ticks_slice().into(),
                     changed_ticks: column.get_changed_ticks_slice().into(),
@@ -409,8 +374,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
-            WriteStorage::Uninit => debug_unreachable(),
-            WriteStorage::Table {
+            FetchStorage::Uninit => debug_unreachable(),
+            FetchStorage::Table {
                 column,
                 added_ticks,
                 changed_ticks,
@@ -429,7 +394,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
                     changed_ticks.get(table_row).deref_mut(),
                 )
             }
-            WriteStorage::SparseSet { components, meta } => {
+            FetchStorage::SparseSet { components, meta } => {
                 dyn_ctor = meta.dyn_ctor;
                 let (ptr, ticks) = components
                     .get_with_ticks(entity)
