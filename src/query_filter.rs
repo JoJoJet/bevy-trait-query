@@ -28,8 +28,8 @@ enum ChangeDetectionStorage<'w> {
     },
 }
 
-pub struct OneAddedFilter<'a, Trait: ?Sized + TraitQuery> {
-    marker: PhantomData<&'a Trait>,
+pub struct OneAddedFilter<Trait: ?Sized + TraitQuery> {
+    marker: PhantomData<&'static Trait>,
 }
 
 pub struct ChangeDetectionFetch<'w, Trait: ?Sized + TraitQuery> {
@@ -40,7 +40,7 @@ pub struct ChangeDetectionFetch<'w, Trait: ?Sized + TraitQuery> {
     this_run: Tick,
 }
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<'a, Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -190,13 +190,13 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<'a, Tr
 }
 
 /// SAFETY: read-only access
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAddedFilter<'a, Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAddedFilter<Trait> {}
 
-pub struct OneChangedFilter<'a, Trait: ?Sized + TraitQuery> {
-    marker: PhantomData<&'a Trait>,
+pub struct OneChangedFilter<Trait: ?Sized + TraitQuery> {
+    marker: PhantomData<&'static Trait>,
 }
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<'a, Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -346,4 +346,4 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<'a, 
 }
 
 /// SAFETY: read-only access
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneChangedFilter<'a, Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneChangedFilter<Trait> {}
