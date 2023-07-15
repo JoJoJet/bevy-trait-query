@@ -229,7 +229,7 @@
 //! `bevy` `Added/Changed` filters:
 //! ```ignore
 //! fn show_tooltips(
-//!     tooltips_query: Query<One<&dyn Tooltip>, OneChangedFilter<dyn Tooltip>>
+//!     tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
 //!     // ...
 //! ) {
 //!     // Iterate over each entity that has one tooltip implementing component that has also changed
@@ -238,7 +238,7 @@
 //!     }
 //! }
 //! ```
-//! Note in the above example how `OneChangedFilter` does *not* take a reference to the trait object!
+//! Note in the above example how `OneChanged` does *not* take a reference to the trait object!
 //!
 //! # Performance
 //!
