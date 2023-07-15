@@ -326,9 +326,12 @@ fn added_one() {
 }
 
 // Prints the name and age of every newly added `Person`.
-fn print_added_one_info(people: Query<AddedOne<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_added_one_info(
+    people: Query<One<&dyn Person>, OneAddedFilter<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
     output.0.push("Added people:".to_string());
-    for person in (&people).into_iter().flatten() {
+    for person in &people {
         output
             .0
             .push(format!("{}: {}", person.name(), person.age()));
@@ -374,9 +377,12 @@ fn changed_one() {
 }
 
 // Prints the name and age of every `Person` whose info has changed in some way
-fn print_changed_one_info(people: Query<ChangedOne<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_changed_one_info(
+    people: Query<One<&dyn Person>, OneChangedFilter<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
     output.0.push("Changed people:".to_string());
-    for person in (&people).into_iter().flatten() {
+    for person in &people {
         output
             .0
             .push(format!("{}: {}", person.name(), person.age()));
