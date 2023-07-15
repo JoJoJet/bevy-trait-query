@@ -28,6 +28,8 @@ enum ChangeDetectionStorage<'w> {
     },
 }
 
+/// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
+/// implementing a trait, whose value has changed since the last time the system ran.
 pub struct OneAddedFilter<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
@@ -192,6 +194,8 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<Trait> {
 /// SAFETY: read-only access
 unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAddedFilter<Trait> {}
 
+/// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
+/// implementing a trait, which was added since the last time the system ran.
 pub struct OneChangedFilter<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
