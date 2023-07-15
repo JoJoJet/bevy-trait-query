@@ -30,7 +30,7 @@ enum ChangeDetectionStorage<'w> {
 
 /// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
 /// implementing a trait, whose value has changed since the last time the system ran.
-pub struct OneAddedFilter<Trait: ?Sized + TraitQuery> {
+pub struct OneAdded<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
 
@@ -42,7 +42,7 @@ pub struct ChangeDetectionFetch<'w, Trait: ?Sized + TraitQuery> {
     this_run: Tick,
 }
 
-unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -192,15 +192,15 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAddedFilter<Trait> {
 }
 
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAddedFilter<Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAdded<Trait> {}
 
 /// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
 /// implementing a trait, which was added since the last time the system ran.
-pub struct OneChangedFilter<Trait: ?Sized + TraitQuery> {
+pub struct OneChanged<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
 
-unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
     type ReadOnly = Self;
@@ -350,4 +350,4 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChangedFilter<Trait> {
 }
 
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneChangedFilter<Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneChanged<Trait> {}

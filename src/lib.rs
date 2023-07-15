@@ -225,7 +225,7 @@
 //! }
 //! ```
 //!
-//! or you can use `OneAddedFilter` or `OneChangedFilter` which behave more like the typical
+//! or you can use `OneAdded` or `OneChanged` which behave more like the typical
 //! `bevy` `Added/Changed` filters:
 //! ```ignore
 //! fn show_tooltips(

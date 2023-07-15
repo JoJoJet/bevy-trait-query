@@ -1,5 +1,5 @@
 use super::*;
-use crate::query_filter::{OneAddedFilter, OneChangedFilter};
+use crate::query_filter::{OneAdded, OneChanged};
 use std::fmt::{Debug, Display};
 
 #[derive(Resource, Default)]
@@ -327,7 +327,7 @@ fn added_one() {
 
 // Prints the name and age of every newly added `Person`.
 fn print_added_one_info(
-    people: Query<One<&dyn Person>, OneAddedFilter<dyn Person>>,
+    people: Query<One<&dyn Person>, OneAdded<dyn Person>>,
     mut output: ResMut<Output>,
 ) {
     output.0.push("Added people:".to_string());
@@ -378,7 +378,7 @@ fn changed_one() {
 
 // Prints the name and age of every `Person` whose info has changed in some way
 fn print_changed_one_info(
-    people: Query<One<&dyn Person>, OneChangedFilter<dyn Person>>,
+    people: Query<One<&dyn Person>, OneChanged<dyn Person>>,
     mut output: ResMut<Output>,
 ) {
     output.0.push("Changed people:".to_string());
@@ -428,7 +428,7 @@ fn one_added_filter() {
 
 // Prints the name and age of every newly added `Person`.
 fn print_one_added_filter_info(
-    people: Query<One<&dyn Person>, OneAddedFilter<dyn Person>>,
+    people: Query<One<&dyn Person>, OneAdded<dyn Person>>,
     mut output: ResMut<Output>,
 ) {
     output.0.push("Added people:".to_string());
@@ -479,7 +479,7 @@ fn one_changed_filter() {
 
 // Prints the name and age of every `Person` whose info has changed in some way
 fn print_one_changed_filter_info(
-    people: Query<One<&dyn Person>, OneChangedFilter<dyn Person>>,
+    people: Query<One<&dyn Person>, OneChanged<dyn Person>>,
     mut output: ResMut<Output>,
 ) {
     output.0.push("Changed people:".to_string());
