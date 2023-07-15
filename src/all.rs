@@ -28,12 +28,6 @@ pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
     this_run: Tick,
 }
 
-/// Read-access to all components implementing a trait for a given entity.
-pub struct AddedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
-
-/// Read-access to all components implementing a trait for a given entity.
-pub struct ChangedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
-
 #[doc(hidden)]
 pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
@@ -118,36 +112,6 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
     }
 }
 
-#[doc(hidden)]
-pub struct AddedIteratorFilter<I>(I);
-
-impl<I> Iterator for AddedIteratorFilter<I>
-where
-    I: Iterator,
-    I::Item: DetectChanges,
-{
-    type Item = <I as Iterator>::Item;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.find(DetectChanges::is_added)
-    }
-}
-
-#[doc(hidden)]
-pub struct ChangedIteratorFilter<I>(I);
-
-impl<I> Iterator for ChangedIteratorFilter<I>
-where
-    I: Iterator,
-    I::Item: DetectChanges,
-{
-    type Item = <I as Iterator>::Item;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.find(DetectChanges::is_changed)
-    }
-}
-
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
     type Item = Ref<'w, Trait>;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
@@ -170,24 +134,6 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
             this_run: self.this_run,
         };
         table.chain(sparse)
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedReadTraits<'w, Trait> {
-    type Item = Ref<'w, Trait>;
-    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        AddedIteratorFilter(self.0.into_iter())
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedReadTraits<'w, Trait> {
-    type Item = Ref<'w, Trait>;
-    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ChangedIteratorFilter(self.0.into_iter())
     }
 }
 
@@ -216,41 +162,9 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &AddedReadTraits<'w, Trait> {
-    type Item = Ref<'w, Trait>;
-    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        AddedIteratorFilter((&self.0).into_iter())
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ChangedReadTraits<'w, Trait> {
-    type Item = Ref<'w, Trait>;
-    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ChangedIteratorFilter((&self.0).into_iter())
-    }
-}
-
 impl<'w, Trait: ?Sized + TraitQuery> ReadTraits<'w, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
     pub fn iter(&self) -> CombinedReadTraitsIter<'w, Trait> {
-        self.into_iter()
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> AddedReadTraits<'w, Trait> {
-    /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
-        self.into_iter()
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> ChangedReadTraits<'w, Trait> {
-    /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
         self.into_iter()
     }
 }
@@ -283,14 +197,6 @@ pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
     /// guaranteeing us exclusive access at runtime.
     sparse_sets: &'a SparseSets,
 }
-
-/// Write-access to all components implementing a trait for a given entity, and have been newly
-/// added in the last tick.
-pub struct AddedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
-
-/// Write-access to all components implementing a trait for a given entity, and have been changed in
-/// the last tick.
-pub struct ChangedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
 
 #[doc(hidden)]
 pub type CombinedWriteTraitsIter<'a, Trait> =
@@ -407,28 +313,6 @@ impl<'w, Trait: ?Sized + TraitQuery> WriteTraits<'w, Trait> {
     }
 }
 
-impl<'w, Trait: ?Sized + TraitQuery> AddedWriteTraits<'w, Trait> {
-    /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
-        self.into_iter()
-    }
-    /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
-        self.into_iter()
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> ChangedWriteTraits<'w, Trait> {
-    /// Returns an iterator over the components implementing `Trait` for the current entity.
-    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
-        self.into_iter()
-    }
-    /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
-        self.into_iter()
-    }
-}
-
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
     type Item = Mut<'w, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'w, Trait>;
@@ -451,24 +335,6 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
             this_run: self.this_run,
         };
         table.chain(sparse)
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedWriteTraits<'w, Trait> {
-    type Item = Mut<'w, Trait>;
-    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        AddedIteratorFilter(self.0.into_iter())
-    }
-}
-
-impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedWriteTraits<'w, Trait> {
-    type Item = Mut<'w, Trait>;
-    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ChangedIteratorFilter(self.0.into_iter())
     }
 }
 
@@ -500,28 +366,6 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 }
 
 impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local AddedWriteTraits<'world, Trait>
-{
-    type Item = Ref<'local, Trait>;
-    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        AddedIteratorFilter((&self.0).into_iter())
-    }
-}
-
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local ChangedWriteTraits<'world, Trait>
-{
-    type Item = Ref<'local, Trait>;
-    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ChangedIteratorFilter((&self.0).into_iter())
-    }
-}
-
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local mut WriteTraits<'world, Trait>
 {
     type Item = Mut<'local, Trait>;
@@ -548,46 +392,12 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     }
 }
 
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local mut AddedWriteTraits<'world, Trait>
-{
-    type Item = Mut<'local, Trait>;
-    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        AddedIteratorFilter((&mut self.0).into_iter())
-    }
-}
-
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local mut ChangedWriteTraits<'world, Trait>
-{
-    type Item = Mut<'local, Trait>;
-    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ChangedIteratorFilter((&mut self.0).into_iter())
-    }
-}
-
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 ///
 /// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
 pub struct All<T: ?Sized>(T);
 
-/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
-/// the additional condition that they have been added since the last tick.
-pub struct AllAdded<T: ?Sized>(T);
-
-/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
-/// the additional condition that they have also changed since the last tick.
-pub struct AllChanged<T: ?Sized>(T);
-
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait> {}
-
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllAdded<&'a Trait> {}
-
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllChanged<&'a Trait> {}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
@@ -709,188 +519,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         state.matches_component_set_any(set_contains_id)
-    }
-}
-
-// SAFETY: We only access the components registered in the trait registry.
-// This is known to match the set of components in the TraitQueryState,
-// which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllChanged<&'a Trait> {
-    type Item<'w> = ChangedReadTraits<'w, Trait>;
-    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
-    type ReadOnly = Self;
-    type State = TraitQueryState<Trait>;
-
-    #[inline]
-    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
-        item
-    }
-
-    #[inline]
-    unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w>,
-        state: &Self::State,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Self::Fetch<'w> {
-        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
-    }
-
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
-    }
-
-    const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
-
-    #[inline]
-    unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
-    ) {
-        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
-    }
-
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
-    ) {
-        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
-    }
-
-    #[inline]
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w> {
-        ChangedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
-            fetch, entity, table_row,
-        ))
-    }
-
-    #[inline]
-    fn update_component_access(
-        state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
-    ) {
-        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
-    ) {
-        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
-    }
-
-    #[inline]
-    fn init_state(world: &mut World) -> Self::State {
-        <All<&'a Trait> as WorldQuery>::init_state(world)
-    }
-    #[inline]
-    fn matches_component_set(
-        state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
-    ) -> bool {
-        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
-    }
-}
-
-// SAFETY: We only access the components registered in the trait registry.
-// This is known to match the set of components in the TraitQueryState,
-// which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllAdded<&'a Trait> {
-    type Item<'w> = AddedReadTraits<'w, Trait>;
-    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
-    type ReadOnly = Self;
-    type State = TraitQueryState<Trait>;
-
-    #[inline]
-    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
-        item
-    }
-
-    #[inline]
-    unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w>,
-        state: &Self::State,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Self::Fetch<'w> {
-        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
-    }
-
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
-    }
-
-    const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
-
-    #[inline]
-    unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
-        archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
-    ) {
-        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
-    }
-
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
-    ) {
-        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
-    }
-
-    #[inline]
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w> {
-        AddedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
-            fetch, entity, table_row,
-        ))
-    }
-
-    #[inline]
-    fn update_component_access(
-        state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
-    ) {
-        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
-    ) {
-        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
-    }
-
-    #[inline]
-    fn init_state(world: &mut World) -> Self::State {
-        <All<&'a Trait> as WorldQuery>::init_state(world)
-    }
-    #[inline]
-    fn matches_component_set(
-        state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
-    ) -> bool {
-        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
 
@@ -1203,5 +831,377 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllChanged<&'a mut Tr
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         <All<&'a mut Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
+    }
+}
+
+/// Read-access to all components implementing a trait for a given entity.
+pub struct AddedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
+
+/// Read-access to all components implementing a trait for a given entity.
+pub struct ChangedReadTraits<'a, Trait: ?Sized + TraitQuery>(ReadTraits<'a, Trait>);
+
+#[doc(hidden)]
+pub struct AddedIteratorFilter<I>(I);
+
+impl<I> Iterator for AddedIteratorFilter<I>
+where
+    I: Iterator,
+    I::Item: DetectChanges,
+{
+    type Item = <I as Iterator>::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.find(DetectChanges::is_added)
+    }
+}
+
+#[doc(hidden)]
+pub struct ChangedIteratorFilter<I>(I);
+
+impl<I> Iterator for ChangedIteratorFilter<I>
+where
+    I: Iterator,
+    I::Item: DetectChanges,
+{
+    type Item = <I as Iterator>::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.find(DetectChanges::is_changed)
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedReadTraits<'w, Trait> {
+    type Item = Ref<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        AddedIteratorFilter(self.0.into_iter())
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedReadTraits<'w, Trait> {
+    type Item = Ref<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ChangedIteratorFilter(self.0.into_iter())
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &AddedReadTraits<'w, Trait> {
+    type Item = Ref<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        AddedIteratorFilter((&self.0).into_iter())
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ChangedReadTraits<'w, Trait> {
+    type Item = Ref<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ChangedIteratorFilter((&self.0).into_iter())
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> AddedReadTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
+        self.into_iter()
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> ChangedReadTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
+        self.into_iter()
+    }
+}
+
+/// Write-access to all components implementing a trait for a given entity, and have been newly
+/// added in the last tick.
+pub struct AddedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
+
+/// Write-access to all components implementing a trait for a given entity, and have been changed in
+/// the last tick.
+pub struct ChangedWriteTraits<'a, Trait: ?Sized + TraitQuery>(WriteTraits<'a, Trait>);
+
+impl<'w, Trait: ?Sized + TraitQuery> AddedWriteTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
+        self.into_iter()
+    }
+    /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
+        self.into_iter()
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> ChangedWriteTraits<'w, Trait> {
+    /// Returns an iterator over the components implementing `Trait` for the current entity.
+    pub fn iter(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
+        self.into_iter()
+    }
+    /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
+        self.into_iter()
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for AddedWriteTraits<'w, Trait> {
+    type Item = Mut<'w, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        AddedIteratorFilter(self.0.into_iter())
+    }
+}
+
+impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ChangedWriteTraits<'w, Trait> {
+    type Item = Mut<'w, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'w, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ChangedIteratorFilter(self.0.into_iter())
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local AddedWriteTraits<'world, Trait>
+{
+    type Item = Ref<'local, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        AddedIteratorFilter((&self.0).into_iter())
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local ChangedWriteTraits<'world, Trait>
+{
+    type Item = Ref<'local, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedReadTraitsIter<'local, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ChangedIteratorFilter((&self.0).into_iter())
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local mut AddedWriteTraits<'world, Trait>
+{
+    type Item = Mut<'local, Trait>;
+    type IntoIter = AddedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        AddedIteratorFilter((&mut self.0).into_iter())
+    }
+}
+
+impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local mut ChangedWriteTraits<'world, Trait>
+{
+    type Item = Mut<'local, Trait>;
+    type IntoIter = ChangedIteratorFilter<CombinedWriteTraitsIter<'local, Trait>>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ChangedIteratorFilter((&mut self.0).into_iter())
+    }
+}
+
+/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
+/// the additional condition that they have been added since the last tick.
+pub struct AllAdded<T: ?Sized>(T);
+
+/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
+/// the additional condition that they have also changed since the last tick.
+pub struct AllChanged<T: ?Sized>(T);
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllAdded<&'a Trait> {}
+
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for AllChanged<&'a Trait> {}
+
+// SAFETY: We only access the components registered in the trait registry.
+// This is known to match the set of components in the TraitQueryState,
+// which is used to match archetypes and register world access.
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllAdded<&'a Trait> {
+    type Item<'w> = AddedReadTraits<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
+    type ReadOnly = Self;
+    type State = TraitQueryState<Trait>;
+
+    #[inline]
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        item
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
+    }
+
+    #[inline]
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
+    }
+
+    const IS_DENSE: bool = false;
+    const IS_ARCHETYPAL: bool = false;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
+    }
+
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
+    }
+
+    #[inline]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        AddedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
+    }
+
+    #[inline]
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
+    }
+
+    #[inline]
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &bevy::ecs::archetype::Archetype,
+        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+    ) {
+        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
+    }
+
+    #[inline]
+    fn init_state(world: &mut World) -> Self::State {
+        <All<&'a Trait> as WorldQuery>::init_state(world)
+    }
+    #[inline]
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
+    }
+}
+
+// SAFETY: We only access the components registered in the trait registry.
+// This is known to match the set of components in the TraitQueryState,
+// which is used to match archetypes and register world access.
+unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AllChanged<&'a Trait> {
+    type Item<'w> = ChangedReadTraits<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
+    type ReadOnly = Self;
+    type State = TraitQueryState<Trait>;
+
+    #[inline]
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        item
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        <All<&'a Trait> as WorldQuery>::init_fetch(world, state, last_run, this_run)
+    }
+
+    #[inline]
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        <All<&'a Trait> as WorldQuery>::clone_fetch(fetch)
+    }
+
+    const IS_DENSE: bool = false;
+    const IS_ARCHETYPAL: bool = false;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w bevy::ecs::archetype::Archetype,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        <All<&'a Trait> as WorldQuery>::set_archetype(fetch, state, archetype, table);
+    }
+
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w bevy::ecs::storage::Table,
+    ) {
+        <All<&'a Trait> as WorldQuery>::set_table(fetch, state, table);
+    }
+
+    #[inline]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        ChangedReadTraits(<All<&'a Trait> as WorldQuery>::fetch(
+            fetch, entity, table_row,
+        ))
+    }
+
+    #[inline]
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        <All<&'a Trait> as WorldQuery>::update_component_access(state, access);
+    }
+
+    #[inline]
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &bevy::ecs::archetype::Archetype,
+        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+    ) {
+        <All<&'a Trait> as WorldQuery>::update_archetype_component_access(state, archetype, access);
+    }
+
+    #[inline]
+    fn init_state(world: &mut World) -> Self::State {
+        <All<&'a Trait> as WorldQuery>::init_state(world)
+    }
+    #[inline]
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        <All<&'a Trait> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
