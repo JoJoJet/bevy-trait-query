@@ -94,8 +94,8 @@ unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for ChangedOne<&'a T>
 
 unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for AddedOne<&'a T> {}
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     type Item<'w> = &'w Trait;
     type Fetch<'w> = ReadTraitFetch<'w, Trait>;
@@ -271,8 +271,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     }
 }
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait> {
     type Item<'w> = Option<&'w Trait>;
     type Fetch<'w> = ReadTraitFetch<'w, Trait>;
@@ -450,8 +450,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a Trait>
     }
 }
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
     type Item<'w> = Option<&'w Trait>;
     type Fetch<'w> = ReadTraitFetch<'w, Trait>;
@@ -629,8 +629,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a Trait> {
     }
 }
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
     type Fetch<'w> = WriteTraitFetch<'w, Trait>;
@@ -839,8 +839,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 }
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Trait> {
     type Item<'w> = Option<Mut<'w, Trait>>;
     type Fetch<'w> = WriteTraitFetch<'w, Trait>;
@@ -1054,8 +1054,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for ChangedOne<&'a mut Tr
     }
 }
 
-/// SAFETY: We only access the components registered in TraitQueryState.
-/// This same set of components is used to match archetypes, and used to register world access.
+// SAFETY: We only access the components registered in TraitQueryState.
+// This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for AddedOne<&'a mut Trait> {
     type Item<'w> = Option<Mut<'w, Trait>>;
     type Fetch<'w> = WriteTraitFetch<'w, Trait>;
