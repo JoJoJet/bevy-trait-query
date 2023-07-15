@@ -1,5 +1,5 @@
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
-use bevy::ecs::change_detection::Mut;
+use bevy::ecs::change_detection::{Mut, Ref};
 use bevy::ecs::component::{ComponentId, Tick};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -85,7 +85,7 @@ unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a T> {}
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
-    type Item<'w> = &'w Trait;
+    type Item<'w> = Ref<'w, Trait>;
     type Fetch<'w> = ReadTraitFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
@@ -200,21 +200,49 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         table_row: TableRow,
     ) -> Self::Item<'w> {
         let table_row = table_row.index();
-        match fetch.storage {
+        let dyn_ctor;
+        let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
             // so we know that `self.storage` has been initialized.
             ReadStorage::Uninit => debug_unreachable(),
-            ReadStorage::Table { column, meta, .. } => {
+            ReadStorage::Table {
+                column,
+                added_ticks,
+                changed_ticks,
+                meta,
+            } => {
+                dyn_ctor = meta.dyn_ctor;
                 let ptr = column.byte_add(table_row * meta.size_bytes);
-                meta.dyn_ctor.cast(ptr)
+                (
+                    ptr,
+                    // SAFETY: We have read access to the component, so by extension
+                    // we have access to the corresponding `ComponentTicks`.
+                    added_ticks.get(table_row).deref(),
+                    changed_ticks.get(table_row).deref(),
+                )
             }
             ReadStorage::SparseSet { components, meta } => {
-                let ptr = components
-                    .get(entity)
+                dyn_ctor = meta.dyn_ctor;
+                let (ptr, ticks) = components
+                    .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
-                meta.dyn_ctor.cast(ptr)
+                (
+                    ptr,
+                    // SAFETY: We have read access to the component, so by extension
+                    // we have access to the corresponding `ComponentTicks`.
+                    ticks.added.deref(),
+                    ticks.changed.deref(),
+                )
             }
-        }
+        };
+
+        Ref::new(
+            dyn_ctor.cast(ptr),
+            added,
+            changed,
+            fetch.last_run,
+            fetch.this_run,
+        )
     }
 
     #[inline]
