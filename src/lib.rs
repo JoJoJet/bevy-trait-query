@@ -195,6 +195,11 @@
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
 //! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
 //! fn show_tooltips(
 //!     tooltips_query: Query<AllChanged<&dyn Tooltip>>
 //!     // ...
@@ -218,12 +223,17 @@
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
 //! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
 //! fn show_tooltips(
 //!     tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
 //!     // ...
 //! ) {
 //!     // Iterate over each entity that has one tooltip implementing component that has also changed
-//!     for changed_tooltip in &tooltips_query {
+//!     for tooltip in &tooltips_query {
 //!         println!("Changed Tooltip: {}", tooltip.tooltip());
 //!     }
 //! }
