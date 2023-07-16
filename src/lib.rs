@@ -208,24 +208,8 @@
 //!
 //! Similar to [`AllChanged`](crate::all::AllChanged), we have [`AllAdded`](crate::all::AllAdded) to detect entities which have had a trait-implementing component added since the last tick.
 //!
-//! If you know you have only one component that implements the target trait, you can use
-//! [`ChangedOne`](crate::one::ChangedOne) (or [`AddedOne`](crate::one::AddedOne)) filters, which returns an [`Option`]al entity if change was detected:
-//! ```ignore
-//! fn show_tooltips(
-//!     tooltips_query: Query<ChangedOne<&dyn Tooltip>>
-//!     // ...
-//! ) {
-//!     // Iterate over each entity that has one tooltip implementing component
-//!     for maybe_changed_tooltip in &tooltips_query {
-//!         // check if the component changed
-//!         if let Some(changed_tooltip) = maybe_changed_tooltip {
-//!             println!("Changed Tooltip: {}", tooltip.tooltip());
-//!         }
-//!     }
-//! }
-//! ```
-//!
-//! or you can use `OneAdded` or `OneChanged` which behave more like the typical
+//! If you know you have only one component that implements the target trait,
+//! you can use `OneAdded` or `OneChanged` which behave more like the typical
 //! `bevy` `Added/Changed` filters:
 //! ```ignore
 //! fn show_tooltips(
