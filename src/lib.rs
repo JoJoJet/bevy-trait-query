@@ -12,7 +12,7 @@
 //!
 //! In order to be useful within bevy, you'll want to be able to query for this trait.
 //!
-//! ```ignore
+//! ```
 //! # use bevy::prelude::*;
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
@@ -167,7 +167,7 @@
 //! you can use the filter [`One`](crate::one::One). This has significantly better performance than iterating
 //! over all trait impls.
 //!
-//! ```ignore
+//! ```
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
 //! #
@@ -191,7 +191,10 @@
 //!
 //! Trait queries support basic change detection filtration. So to get all the components that
 //! implement the target trait, and have also changed in some way since the last tick, you can:
-//! ```ignore
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
 //! fn show_tooltips(
 //!     tooltips_query: Query<AllChanged<&dyn Tooltip>>
 //!     // ...
@@ -211,7 +214,10 @@
 //! If you know you have only one component that implements the target trait,
 //! you can use `OneAdded` or `OneChanged` which behave more like the typical
 //! `bevy` `Added/Changed` filters:
-//! ```ignore
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
 //! fn show_tooltips(
 //!     tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
 //!     // ...
