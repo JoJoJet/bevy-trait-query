@@ -264,7 +264,6 @@ mod tests;
 
 pub mod all;
 pub mod one;
-mod query_filter;
 
 pub use all::*;
 pub use one::*;
