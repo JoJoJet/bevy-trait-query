@@ -251,6 +251,7 @@
 //! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
 //! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
+
 use bevy::{
     ecs::{
         component::{ComponentId, StorageType},

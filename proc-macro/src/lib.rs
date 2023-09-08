@@ -114,7 +114,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
     let my_crate = proc_macro_crate::crate_name("bevy-trait-query").unwrap();
     let my_crate = match my_crate {
-        proc_macro_crate::FoundCrate::Itself => quote! { crate },
+        proc_macro_crate::FoundCrate::Itself => quote! { bevy_trait_query },
         proc_macro_crate::FoundCrate::Name(x) => {
             let ident = quote::format_ident!("{x}");
             quote! { #ident }
