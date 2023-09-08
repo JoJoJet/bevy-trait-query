@@ -29,6 +29,10 @@ pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
 }
 
 #[doc(hidden)]
+pub type CombinedReadTraitsIter<'a, Trait> =
+    std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
+
+#[doc(hidden)]
 pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     // SAFETY: These two iterators must have equal length.
     components: std::slice::Iter<'a, ComponentId>,
@@ -40,10 +44,6 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     last_run: Tick,
     this_run: Tick,
 }
-
-#[doc(hidden)]
-pub type CombinedReadTraitsIter<'a, Trait> =
-    std::iter::Chain<ReadTableTraitsIter<'a, Trait>, ReadSparseTraitsIter<'a, Trait>>;
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
     type Item = Ref<'a, Trait>;
