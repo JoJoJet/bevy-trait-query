@@ -1,15 +1,17 @@
+use bevy::ecs::{
+    change_detection::{DetectChanges, Mut, Ref},
+    component::{ComponentId, Tick},
+    entity::Entity,
+    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    storage::{SparseSets, Table, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
+use bevy::ptr::UnsafeCellDeref;
+
 use crate::{
     debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
     TraitQuery, TraitQueryState,
 };
-use bevy::ecs::change_detection::{DetectChanges, Mut, Ref};
-use bevy::ecs::component::{ComponentId, Tick};
-use bevy::ecs::entity::Entity;
-use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
-use bevy::ecs::storage::{SparseSets, Table, TableRow};
-use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
-use bevy::ecs::world::World;
-use bevy::ptr::UnsafeCellDeref;
 
 /// Read-access to all components implementing a trait for a given entity.
 pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {

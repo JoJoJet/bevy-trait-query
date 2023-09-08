@@ -1,18 +1,20 @@
+use std::{cell::UnsafeCell, marker::PhantomData};
+
+use bevy::ecs::{
+    archetype::{Archetype, ArchetypeComponentId},
+    change_detection::{Mut, Ref},
+    component::{ComponentId, Tick},
+    entity::Entity,
+    query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    storage::{ComponentSparseSet, SparseSets, Table, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
+use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
+
 use crate::{
     debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
     TraitQuery, TraitQueryState,
 };
-use bevy::ecs::archetype::{Archetype, ArchetypeComponentId};
-use bevy::ecs::change_detection::{Mut, Ref};
-use bevy::ecs::component::{ComponentId, Tick};
-use bevy::ecs::entity::Entity;
-use bevy::ecs::query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery};
-use bevy::ecs::storage::{ComponentSparseSet, SparseSets, Table, TableRow};
-use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
-use bevy::ecs::world::World;
-use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
 
 pub struct OneTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
