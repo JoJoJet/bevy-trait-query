@@ -201,20 +201,21 @@
 //! # }
 //! #
 //! fn show_tooltips(
-//!     tooltips_query: Query<AllChanged<&dyn Tooltip>>
+//!     tooltips_query: Query<All<&dyn Tooltip>>
 //!     // ...
 //! ) {
-//!     // Iterate over all entities  that have changed since the last tick and have some component that implements `Tooltip`
+//!     // Iterate over all entities with at least one component implementing `Tooltip`
 //!     for entity_tooltips in &tooltips_query {
-//!         // Iterate over each component implementing `Tooltip` for the current entity.
-//!         for tooltip in entity_tooltips {
+//!         // Iterate over each component for the current entity that changed since the last time the system was run.
+//!         for tooltip in entity_tooltips.iter_changed() {
 //!             println!("Changed Tooltip: {}", tooltip.tooltip());
 //!         }
 //!     }
 //! }
 //! ```
 //!
-//! Similar to [`AllChanged`](crate::all::AllChanged), we have [`AllAdded`](crate::all::AllAdded) to detect entities which have had a trait-implementing component added since the last tick.
+//! Similar to [`iter_changed`](crate::all::All::iter_changed), we have [`iter_added`](crate::all::All::iter_added)
+//! to detect entities which have had a trait-implementing component added since the last tick.
 //!
 //! If you know you have only one component that implements the target trait,
 //! you can use `OneAdded` or `OneChanged` which behave more like the typical
