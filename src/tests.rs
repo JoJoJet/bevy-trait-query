@@ -1,6 +1,9 @@
 use super::*;
 use std::fmt::{Debug, Display};
 
+// Required for proc macros.
+use crate as bevy_trait_query;
+
 #[derive(Resource, Default)]
 pub struct Output(Vec<String>);
 
@@ -179,6 +182,315 @@ fn age_up_not(mut q: Query<&mut dyn Person, Without<Fem>>) {
             p.set_age(age + 1);
         }
     }
+}
+
+#[test]
+fn added_all() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_added_all_info, age_up_fem).chain());
+
+    schedule.run(&mut world);
+
+    world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
+
+    schedule.run(&mut world);
+
+    // only changes will occur now to the ages of Garbanzo/Reginald, so nothing should be printed
+
+    schedule.run(&mut world);
+
+    println!("{:?}", world.resource::<Output>().0);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Added people:",
+            "Henry: 22",
+            "",
+            "Added people:",
+            "Garbanzo: 17",
+            "Reginald: 17",
+            "",
+            "Added people:",
+            ""
+        ]
+    );
+}
+
+// Prints the name and age of every newly added `Person`.
+fn print_added_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+    output.0.push("Added people:".to_string());
+    for person in people.iter().flat_map(|p| p.iter_added()) {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn changed_all() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_changed_all_info, age_up_fem).chain());
+
+    // Henry is newly added, so we expect him to be printed
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    schedule.run(&mut world);
+
+    // Garbanzo and Dolphin (Reginald) are newly added, so we expect them to be printed
+    world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
+
+    schedule.run(&mut world);
+
+    // Garbanzo and Dolphin (Reginald) will both be incremented in age by one by `age_up_fem`, so
+    // they should be printed again
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Changed people:",
+            "Henry: 22",
+            "",
+            "Changed people:",
+            "Garbanzo: 17",
+            "Reginald: 17",
+            "",
+            "Changed people:",
+            "Garbanzo: 18",
+            "Reginald: 18",
+            "",
+        ]
+    );
+}
+
+// Prints the name and age of every `Person` whose info has changed in some way
+fn print_changed_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+    output.0.push("Changed people:".to_string());
+    for person in people.iter().flat_map(|p| p.iter_changed()) {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn added_one() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_added_one_info, (age_up_fem, age_up_not)).chain());
+
+    schedule.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    schedule.run(&mut world);
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Added people:",
+            "Henry: 22",
+            "",
+            "Added people:",
+            "Reginald: 27",
+            "",
+            "Added people:",
+            "",
+        ]
+    );
+}
+
+// Prints the name and age of every newly added `Person`.
+fn print_added_one_info(
+    people: Query<One<&dyn Person>, OneAdded<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
+    output.0.push("Added people:".to_string());
+    for person in &people {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn changed_one() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_changed_one_info, age_up_fem).chain());
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    schedule.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    schedule.run(&mut world);
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Changed people:",
+            "Henry: 22",
+            "",
+            "Changed people:",
+            "Reginald: 27",
+            "",
+            "Changed people:",
+            "Reginald: 28",
+            ""
+        ]
+    );
+}
+
+// Prints the name and age of every `Person` whose info has changed in some way
+fn print_changed_one_info(
+    people: Query<One<&dyn Person>, OneChanged<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
+    output.0.push("Changed people:".to_string());
+    for person in &people {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn one_added_filter() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_one_added_filter_info, (age_up_fem, age_up_not)).chain());
+
+    schedule.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    schedule.run(&mut world);
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Added people:",
+            "Henry: 22",
+            "",
+            "Added people:",
+            "Reginald: 27",
+            "",
+            "Added people:",
+            "",
+        ]
+    );
+}
+
+// Prints the name and age of every newly added `Person`.
+fn print_one_added_filter_info(
+    people: Query<One<&dyn Person>, OneAdded<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
+    output.0.push("Added people:".to_string());
+    for person in (&people).into_iter() {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
+}
+
+#[test]
+fn one_changed_filter() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+
+    let mut schedule = Schedule::new();
+    schedule.add_systems((print_one_changed_filter_info, age_up_fem).chain());
+
+    schedule.run(&mut world);
+
+    world.spawn((Dolphin(27), Fem));
+
+    schedule.run(&mut world);
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "Changed people:",
+            "Henry: 22",
+            "",
+            "Changed people:",
+            "Reginald: 27",
+            "",
+            "Changed people:",
+            "Reginald: 28",
+            ""
+        ]
+    );
+}
+
+// Prints the name and age of every `Person` whose info has changed in some way
+fn print_one_changed_filter_info(
+    people: Query<One<&dyn Person>, OneChanged<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
+    output.0.push("Changed people:".to_string());
+    for person in (&people).into_iter() {
+        output
+            .0
+            .push(format!("{}: {}", person.name(), person.age()));
+    }
+    output.0.push(default());
 }
 
 #[queryable]

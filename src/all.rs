@@ -1,15 +1,17 @@
+use bevy::ecs::{
+    change_detection::{DetectChanges, Mut, Ref},
+    component::{ComponentId, Tick},
+    entity::Entity,
+    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    storage::{SparseSets, Table, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
+use bevy::ptr::UnsafeCellDeref;
+
 use crate::{
     debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
     TraitQuery, TraitQueryState,
 };
-use bevy::ecs::change_detection::Mut;
-use bevy::ecs::component::{ComponentId, Tick};
-use bevy::ecs::entity::Entity;
-use bevy::ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery};
-use bevy::ecs::storage::{SparseSets, Table, TableRow};
-use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
-use bevy::ecs::world::World;
-use bevy::ptr::UnsafeCellDeref;
 
 /// Read-access to all components implementing a trait for a given entity.
 pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
@@ -24,6 +26,8 @@ pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
     /// The fetch impl registers read-access for all of these components,
     /// so there will be no runtime conflicts.
     sparse_sets: &'a SparseSets,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 #[doc(hidden)]
@@ -39,10 +43,12 @@ pub struct ReadTableTraitsIter<'a, Trait: ?Sized> {
     // Grants shared access to the components corresponding to `components` in this table.
     // Not all components are guaranteed to exist in the table.
     table: &'a Table,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
+    type Item = Ref<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining table components that are registered,
         // until we find one that exists in the table.
@@ -55,7 +61,19 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
                 .byte_add(self.table_row.index() * meta.size_bytes)
         };
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
-        Some(trait_object)
+
+        // SAFETY: we know that the `table_row` is a valid index.
+        // Read access has been registered, so we can dereference it immutably.
+        let added_tick = unsafe { column.get_added_ticks_unchecked(self.table_row).deref() };
+        let changed_tick = unsafe { column.get_changed_ticks_unchecked(self.table_row).deref() };
+
+        Some(Ref::new(
+            trait_object,
+            added_tick,
+            changed_tick,
+            self.last_run,
+            self.this_run,
+        ))
     }
 }
 
@@ -67,28 +85,37 @@ pub struct ReadSparseTraitsIter<'a, Trait: ?Sized> {
     entity: Entity,
     // Grants shared access to the components corresponding to both `components` and `entity`.
     sparse_sets: &'a SparseSets,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait> {
-    type Item = &'a Trait;
+    type Item = Ref<'a, Trait>;
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining sparse set components that are registered,
         // until we find one that exists in the archetype.
-        let (ptr, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
-            |(&component, meta)| {
-                self.sparse_sets
-                    .get(component)
-                    .and_then(|set| set.get(self.entity))
-                    .zip(Some(meta))
-            },
-        )?;
+        let ((ptr, ticks_ptr), meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+            .find_map(|(&component, meta)| {
+            self.sparse_sets
+                .get(component)
+                .and_then(|set| set.get_with_ticks(self.entity))
+                .zip(Some(meta))
+        })?;
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
-        Some(trait_object)
+        let added_tick = unsafe { ticks_ptr.added.deref() };
+        let changed_tick = unsafe { ticks_ptr.changed.deref() };
+        Some(Ref::new(
+            trait_object,
+            added_tick,
+            changed_tick,
+            self.last_run,
+            self.this_run,
+        ))
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
+    type Item = Ref<'w, Trait>;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -97,19 +124,23 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
             meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row.index()],
             sparse_sets: self.sparse_sets,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         table.chain(sparse)
     }
 }
 
 impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
-    type Item = &'w Trait;
+    type Item = Ref<'w, Trait>;
     type IntoIter = CombinedReadTraitsIter<'w, Trait>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -118,12 +149,16 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
             meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row.index()],
             sparse_sets: self.sparse_sets,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         table.chain(sparse)
     }
@@ -134,13 +169,27 @@ impl<'w, Trait: ?Sized + TraitQuery> ReadTraits<'w, Trait> {
     pub fn iter(&self) -> CombinedReadTraitsIter<'w, Trait> {
         self.into_iter()
     }
+
+    /// Returns an iterator over the components implementing `Trait` for the current entity
+    /// that were added since the last time the system was run.
+    pub fn iter_added(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
+        self.iter().filter(DetectChanges::is_added)
+    }
+
+    /// Returns an iterator over the components implementing `Trait` for the current entity
+    /// whose values were changed since the last time the system was run.
+    pub fn iter_changed(&self) -> impl Iterator<Item = Ref<'w, Trait>> {
+        self.iter().filter(DetectChanges::is_changed)
+    }
 }
 
 #[doc(hidden)]
-pub struct ReadAllTraitsFetch<'w, Trait: ?Sized> {
+pub struct AllTraitsFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
     table: Option<&'w Table>,
     sparse_sets: &'w SparseSets,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 /// Write-access to all components implementing a trait for a given entity.
@@ -267,14 +316,39 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
     }
 }
 
-impl<'w, Trait: ?Sized + TraitQuery> WriteTraits<'w, Trait> {
+impl<Trait: ?Sized + TraitQuery> WriteTraits<'_, Trait> {
     /// Returns an iterator over the components implementing `Trait` for the current entity.
     pub fn iter(&self) -> CombinedReadTraitsIter<'_, Trait> {
         self.into_iter()
     }
+
     /// Returns a mutable iterator over the components implementing `Trait` for the current entity.
     pub fn iter_mut(&mut self) -> CombinedWriteTraitsIter<'_, Trait> {
         self.into_iter()
+    }
+
+    /// Returns an iterator over the components implementing `Trait` for the current entity
+    /// that were added since the last time the system was run.
+    pub fn iter_added(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
+        self.iter().filter(DetectChanges::is_added)
+    }
+
+    /// Returns an iterator over the components implementing `Trait` for the current entity
+    /// whose values were changed since the last time the system was run.
+    pub fn iter_changed(&self) -> impl Iterator<Item = Ref<'_, Trait>> {
+        self.iter().filter(DetectChanges::is_changed)
+    }
+
+    /// Returns a mutable iterator over the components implementing `Trait` for the current entity
+    /// that were added since the last time the system was run.
+    pub fn iter_added_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
+        self.iter_mut().filter(DetectChanges::is_added)
+    }
+
+    /// Returns a mutable iterator over the components implementing `Trait` for the current entity
+    /// whose values were changed since the last time the system was run.
+    pub fn iter_changed_mut(&mut self) -> impl Iterator<Item = Mut<'_, Trait>> {
+        self.iter_mut().filter(DetectChanges::is_changed)
     }
 }
 
@@ -306,7 +380,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
 impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     for &'local WriteTraits<'world, Trait>
 {
-    type Item = &'local Trait;
+    type Item = Ref<'local, Trait>;
     type IntoIter = CombinedReadTraitsIter<'local, Trait>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -315,12 +389,16 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
             meta: self.registry.table_meta.iter(),
             table: self.table,
             table_row: self.table_row,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
             entity: self.table.entities()[self.table_row.index()],
             sparse_sets: self.sparse_sets,
+            last_run: self.last_run,
+            this_run: self.this_run,
         };
         table.chain(sparse)
     }
@@ -353,36 +431,19 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     }
 }
 
-#[doc(hidden)]
-pub struct WriteAllTraitsFetch<'w, Trait: ?Sized + TraitQuery> {
-    registry: &'w TraitImplRegistry<Trait>,
-    table: Option<&'w Table>,
-    sparse_sets: &'w SparseSets,
-    last_run: Tick,
-    this_run: Tick,
-}
-
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 ///
 /// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
 pub struct All<T: ?Sized>(T);
 
-/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
-/// the additional condition that they have also changed since the last tick.
-pub struct ChangedAll<T: ?Sized>(T);
-
-/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity, with
-/// the additional condition that they have been added since the last tick.
-pub struct AddedAll<T: ?Sized>(T);
-
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait> {}
 
-/// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
-/// which is used to match archetypes and register world access.
+// SAFETY: We only access the components registered in the trait registry.
+// This is known to match the set of components in the TraitQueryState,
+// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     type Item<'w> = ReadTraits<'w, Trait>;
-    type Fetch<'w> = ReadAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -395,24 +456,28 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
-    ) -> ReadAllTraitsFetch<'w, Trait> {
-        ReadAllTraitsFetch {
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        AllTraitsFetch {
             registry: world
                 .get_resource()
                 .unwrap_or_else(|| trait_registry_error()),
             table: None,
             sparse_sets: &world.storages().sparse_sets,
+            last_run,
+            this_run,
         }
     }
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadAllTraitsFetch {
+        AllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -421,7 +486,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -430,7 +495,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 
     unsafe fn set_table<'w>(
-        fetch: &mut ReadAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {
@@ -450,6 +515,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
             table,
             table_row,
             sparse_sets: fetch.sparse_sets,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
         }
     }
 
@@ -494,12 +561,12 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 }
 
-/// SAFETY: We only access the components registered in the trait registry.
-/// This is known to match the set of components in the `DynQueryState`,
-/// which is used to match archetypes and register world access.
+// SAFETY: We only access the components registered in the trait registry.
+// This is known to match the set of components in the TraitQueryState,
+// which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
-    type Fetch<'w> = WriteAllTraitsFetch<'w, Trait>;
+    type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
@@ -514,8 +581,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         _state: &Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> WriteAllTraitsFetch<'w, Trait> {
-        WriteAllTraitsFetch {
+    ) -> Self::Fetch<'w> {
+        AllTraitsFetch {
             registry: world
                 .get_resource()
                 .unwrap_or_else(|| trait_registry_error()),
@@ -528,7 +595,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteAllTraitsFetch {
+        AllTraitsFetch {
             registry: fetch.registry,
             table: fetch.table,
             sparse_sets: fetch.sparse_sets,
@@ -542,7 +609,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         _archetype: &'w bevy::ecs::archetype::Archetype,
         table: &'w bevy::ecs::storage::Table,
@@ -552,7 +619,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteAllTraitsFetch<'w, Trait>,
+        fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
         table: &'w bevy::ecs::storage::Table,
     ) {

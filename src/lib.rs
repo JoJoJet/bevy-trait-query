@@ -12,7 +12,7 @@
 //!
 //! In order to be useful within bevy, you'll want to be able to query for this trait.
 //!
-//! ```ignore
+//! ```
 //! # use bevy::prelude::*;
 //! # // Required to make the macro work, because cargo thinks
 //! # // we are in `bevy_trait_query` when compiling this example.
@@ -167,7 +167,7 @@
 //! you can use the filter [`One`](crate::one::One). This has significantly better performance than iterating
 //! over all trait impls.
 //!
-//! ```ignore
+//! ```
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
 //! #
@@ -189,6 +189,58 @@
 //! # bevy::ecs::system::assert_is_system(show_tooltips);
 //! ```
 //!
+//! Trait queries support basic change detection filtration. So to get all the components that
+//! implement the target trait, and have also changed in some way since the last tick, you can:
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
+//! fn show_tooltips(
+//!     tooltips_query: Query<All<&dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over all entities with at least one component implementing `Tooltip`
+//!     for entity_tooltips in &tooltips_query {
+//!         // Iterate over each component for the current entity that changed since the last time the system was run.
+//!         for tooltip in entity_tooltips.iter_changed() {
+//!             println!("Changed Tooltip: {}", tooltip.tooltip());
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! Similar to [`iter_changed`](crate::all::All::iter_changed), we have [`iter_added`](crate::all::All::iter_added)
+//! to detect entities which have had a trait-implementing component added since the last tick.
+//!
+//! If you know you have only one component that implements the target trait,
+//! you can use `OneAdded` or `OneChanged` which behave more like the typical
+//! `bevy` `Added/Changed` filters:
+//! ```no_run
+//! # use bevy::prelude::*;
+//! # use bevy_trait_query::*;
+//! #
+//! # #[bevy_trait_query::queryable]
+//! # pub trait Tooltip {
+//! #     fn tooltip(&self) -> &str;
+//! # }
+//! #
+//! fn show_tooltips(
+//!     tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
+//!     // ...
+//! ) {
+//!     // Iterate over each entity that has one tooltip implementing component that has also changed
+//!     for tooltip in &tooltips_query {
+//!         println!("Changed Tooltip: {}", tooltip.tooltip());
+//!     }
+//! }
+//! ```
+//! Note in the above example how `OneChanged` does *not* take a reference to the trait object!
+//!
 //! # Performance
 //!
 //! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
@@ -199,6 +251,7 @@
 //! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
 //! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
+
 use bevy::{
     ecs::{
         component::{ComponentId, StorageType},
