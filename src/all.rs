@@ -192,6 +192,13 @@ pub struct AllTraitsFetch<'w, Trait: ?Sized> {
     this_run: Tick,
 }
 
+impl<Trait: ?Sized> Clone for AllTraitsFetch<'_, Trait> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<Trait: ?Sized> Copy for AllTraitsFetch<'_, Trait> {}
+
 /// Write-access to all components implementing a trait for a given entity.
 pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
     // Read-only access to the global trait registry.
@@ -470,17 +477,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         }
     }
 
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        AllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
-    }
-
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
@@ -590,17 +586,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
             sparse_sets: &world.storages().sparse_sets,
             last_run,
             this_run,
-        }
-    }
-
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        AllTraitsFetch {
-            registry: fetch.registry,
-            table: fetch.table,
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
         }
     }
 

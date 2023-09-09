@@ -28,6 +28,14 @@ pub struct OneTraitFetch<'w, Trait: ?Sized> {
     this_run: Tick,
 }
 
+impl<Trait: ?Sized> Clone for OneTraitFetch<'_, Trait> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<Trait: ?Sized> Copy for OneTraitFetch<'_, Trait> {}
+
 enum FetchStorage<'w, Trait: ?Sized> {
     Uninit,
     Table {
@@ -48,6 +56,13 @@ enum FetchStorage<'w, Trait: ?Sized> {
         meta: TraitImplMeta<Trait>,
     },
 }
+
+impl<Trait: ?Sized> Clone for FetchStorage<'_, Trait> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<Trait: ?Sized> Copy for FetchStorage<'_, Trait> {}
 
 /// [`WorldQuery`] adapter that fetches entities with exactly one component implementing a trait.
 pub struct One<T>(pub T);
@@ -78,32 +93,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
             storage: FetchStorage::Uninit,
             last_run: Tick::new(0),
             sparse_sets: &world.storages().sparse_sets,
-            this_run: Tick::new(0),
-        }
-    }
-
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        OneTraitFetch {
-            storage: match fetch.storage {
-                FetchStorage::Uninit => FetchStorage::Uninit,
-                FetchStorage::Table {
-                    column,
-                    added_ticks,
-                    changed_ticks,
-                    meta,
-                } => FetchStorage::Table {
-                    column,
-                    added_ticks,
-                    changed_ticks,
-                    meta,
-                },
-                FetchStorage::SparseSet { components, meta } => {
-                    FetchStorage::SparseSet { components, meta }
-                }
-            },
-            last_run: Tick::new(0),
-            sparse_sets: fetch.sparse_sets,
             this_run: Tick::new(0),
         }
     }
@@ -287,32 +276,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
-    #[inline]
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        OneTraitFetch {
-            storage: match fetch.storage {
-                FetchStorage::Uninit => FetchStorage::Uninit,
-                FetchStorage::Table {
-                    column,
-                    meta,
-                    added_ticks,
-                    changed_ticks,
-                } => FetchStorage::Table {
-                    column,
-                    meta,
-                    added_ticks,
-                    changed_ticks,
-                },
-                FetchStorage::SparseSet { components, meta } => {
-                    FetchStorage::SparseSet { components, meta }
-                }
-            },
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
-        }
-    }
-
     const IS_DENSE: bool = false;
     const IS_ARCHETYPAL: bool = false;
 
@@ -469,6 +432,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 }
 
+#[derive(Clone, Copy)]
 enum ChangeDetectionStorage<'w> {
     Uninit,
     Table {
@@ -492,13 +456,20 @@ pub struct OneAdded<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
 
-pub struct ChangeDetectionFetch<'w, Trait: ?Sized + TraitQuery> {
+pub struct ChangeDetectionFetch<'w, Trait: ?Sized> {
     registry: &'w TraitImplRegistry<Trait>,
     storage: ChangeDetectionStorage<'w>,
     sparse_sets: &'w SparseSets,
     last_run: Tick,
     this_run: Tick,
 }
+
+impl<Trait: ?Sized> Clone for ChangeDetectionFetch<'_, Trait> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<Trait: ?Sized> Copy for ChangeDetectionFetch<'_, Trait> {}
 
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     type Item<'w> = bool;
@@ -524,22 +495,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
             sparse_sets: &world.storages().sparse_sets,
             last_run,
             this_run,
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        Self::Fetch {
-            registry: fetch.registry,
-            storage: match fetch.storage {
-                ChangeDetectionStorage::Uninit => ChangeDetectionStorage::Uninit,
-                ChangeDetectionStorage::Table { ticks } => ChangeDetectionStorage::Table { ticks },
-                ChangeDetectionStorage::SparseSet { components } => {
-                    ChangeDetectionStorage::SparseSet { components }
-                }
-            },
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
         }
     }
 
@@ -682,22 +637,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
             sparse_sets: &world.storages().sparse_sets,
             last_run,
             this_run,
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        Self::Fetch {
-            registry: fetch.registry,
-            storage: match fetch.storage {
-                ChangeDetectionStorage::Uninit => ChangeDetectionStorage::Uninit,
-                ChangeDetectionStorage::Table { ticks } => ChangeDetectionStorage::Table { ticks },
-                ChangeDetectionStorage::SparseSet { components } => {
-                    ChangeDetectionStorage::SparseSet { components }
-                }
-            },
-            sparse_sets: fetch.sparse_sets,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
         }
     }
 
