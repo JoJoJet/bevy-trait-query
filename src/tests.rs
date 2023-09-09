@@ -59,7 +59,7 @@ fn one1() {
     world.spawn((Human("Garbanzo".to_owned(), 14), Fem));
     world.spawn(Dolphin(27));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_info, (age_up, change_name, pluralize)).chain());
 
     schedule.run(&mut world);
@@ -124,7 +124,7 @@ fn all1() {
     world.spawn((Human("Garbanzo".to_owned(), 17), Fem, Dolphin(17)));
     world.spawn(Dolphin(27));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_all_info, (age_up_fem, age_up_not)).chain());
 
     schedule.run(&mut world);
@@ -194,7 +194,7 @@ fn added_all() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_added_all_info, age_up_fem).chain());
 
     schedule.run(&mut world);
@@ -244,7 +244,7 @@ fn changed_all() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_changed_all_info, age_up_fem).chain());
 
     // Henry is newly added, so we expect him to be printed
@@ -301,7 +301,7 @@ fn added_one() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_added_one_info, (age_up_fem, age_up_not)).chain());
 
     schedule.run(&mut world);
@@ -349,7 +349,7 @@ fn changed_one() {
         .register_component_as::<dyn Person, Human>()
         .register_component_as::<dyn Person, Dolphin>();
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_changed_one_info, age_up_fem).chain());
 
     world.spawn(Human("Henry".to_owned(), 22));
@@ -402,7 +402,7 @@ fn one_added_filter() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_one_added_filter_info, (age_up_fem, age_up_not)).chain());
 
     schedule.run(&mut world);
@@ -452,7 +452,7 @@ fn one_changed_filter() {
 
     world.spawn(Human("Henry".to_owned(), 22));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_one_changed_filter_info, age_up_fem).chain());
 
     schedule.run(&mut world);
@@ -535,7 +535,7 @@ fn sparse1() {
     world.spawn(RecA(vec![]));
     world.spawn((RecA(vec![]), RecB(vec!["Mama mia".to_owned()])));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((print_messages, spawn_sparse).chain());
 
     schedule.run(&mut world);
@@ -591,7 +591,7 @@ fn multi_register() {
     world.spawn((RecA(vec![]), RecB(vec![])));
     world.spawn(RecB(vec![]));
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems(count_impls);
 
     fn count_impls(q: Query<&dyn Messages>, mut output: ResMut<Output>) {

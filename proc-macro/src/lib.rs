@@ -176,13 +176,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
 
             #[inline]
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                <#my_crate::All<&#trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
-            }
-
-            #[inline]
             fn shrink<'wlong: 'wshort, 'wshort>(
                 item: Self::Item<'wlong>,
             ) -> Self::Item<'wshort> {
@@ -281,13 +274,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                     last_run,
                     this_run,
                 )
-            }
-
-            #[inline]
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::clone_fetch(fetch)
             }
 
             #[inline]
