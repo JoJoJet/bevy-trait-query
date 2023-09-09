@@ -11,10 +11,7 @@ use bevy::ecs::{
 };
 use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 
-use crate::{
-    debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
-    TraitQuery, TraitQueryState,
-};
+use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
 
 pub struct OneTraitFetch<'w, Trait: ?Sized> {
     // While we have shared access to all sparse set components,
@@ -456,24 +453,17 @@ pub struct OneAdded<Trait: ?Sized + TraitQuery> {
     marker: PhantomData<&'static Trait>,
 }
 
-pub struct ChangeDetectionFetch<'w, Trait: ?Sized> {
-    registry: &'w TraitImplRegistry<Trait>,
+#[derive(Clone, Copy)]
+pub struct ChangeDetectionFetch<'w> {
     storage: ChangeDetectionStorage<'w>,
     sparse_sets: &'w SparseSets,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<Trait: ?Sized> Clone for ChangeDetectionFetch<'_, Trait> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<Trait: ?Sized> Copy for ChangeDetectionFetch<'_, Trait> {}
-
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     type Item<'w> = bool;
-    type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
+    type Fetch<'w> = ChangeDetectionFetch<'w>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -488,9 +478,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
             storage: ChangeDetectionStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
@@ -615,7 +602,7 @@ pub struct OneChanged<Trait: ?Sized + TraitQuery> {
 
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     type Item<'w> = bool;
-    type Fetch<'w> = ChangeDetectionFetch<'w, Trait>;
+    type Fetch<'w> = ChangeDetectionFetch<'w>;
     type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
@@ -630,9 +617,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            registry: world
-                .get_resource()
-                .unwrap_or_else(|| trait_registry_error()),
             storage: ChangeDetectionStorage::Uninit,
             sparse_sets: &world.storages().sparse_sets,
             last_run,
