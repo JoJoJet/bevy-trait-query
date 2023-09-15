@@ -64,8 +64,8 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
 
         // SAFETY: we know that the `table_row` is a valid index.
         // Read access has been registered, so we can dereference it immutably.
-        let added_tick = unsafe { column.get_added_ticks_unchecked(self.table_row).deref() };
-        let changed_tick = unsafe { column.get_changed_ticks_unchecked(self.table_row).deref() };
+        let added_tick = unsafe { column.get_added_tick_unchecked(self.table_row).deref() };
+        let changed_tick = unsafe { column.get_changed_tick_unchecked(self.table_row).deref() };
 
         Some(Ref::new(
             trait_object,
@@ -257,10 +257,10 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
         let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
         // SAFETY: We have exclusive access to the component, so by extension
         // we have exclusive access to the corresponding `ComponentTicks`.
-        let added = unsafe { column.get_added_ticks_unchecked(self.table_row).deref_mut() };
+        let added = unsafe { column.get_added_tick_unchecked(self.table_row).deref_mut() };
         let changed = unsafe {
             column
-                .get_changed_ticks_unchecked(self.table_row)
+                .get_changed_tick_unchecked(self.table_row)
                 .deref_mut()
         };
         Some(Mut::new(

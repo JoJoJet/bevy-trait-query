@@ -536,7 +536,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
             }
             ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.index()),
             ChangeDetectionStorage::SparseSet { components } => components
-                .get_added_ticks(entity)
+                .get_added_tick(entity)
                 .unwrap_or_else(|| debug_unreachable()),
         };
 
@@ -675,7 +675,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
             }
             ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.index()),
             ChangeDetectionStorage::SparseSet { components } => components
-                .get_changed_ticks(entity)
+                .get_changed_tick(entity)
                 .unwrap_or_else(|| debug_unreachable()),
         };
 
