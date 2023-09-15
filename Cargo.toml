@@ -16,7 +16,7 @@ bevy-trait-query-impl = { path = "proc-macro", version = "0.4.0-dev" }
 
 [dependencies.bevy]
 git = "https://github.com/bevyengine/bevy"
-rev = "1980ac88f1b49b8627ce8243fb40589461feb9ff"
+rev = "060711669903306c59eaea427498948992f0e768"
 default-features = false
 
 [dev-dependencies]
