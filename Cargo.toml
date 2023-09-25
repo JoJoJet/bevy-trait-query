@@ -34,15 +34,19 @@ criterion = "0.5"
 [[bench]]
 name = "concrete"
 harness = false
+required-features = ["bevy"]
 
 [[bench]]
 name = "all"
 harness = false
+required-features = ["bevy"]
 
 [[bench]]
 name = "one"
 harness = false
+required-features = ["bevy"]
 
 [[bench]]
 name = "fragmented"
 harness = false
+required-features = ["bevy"]
