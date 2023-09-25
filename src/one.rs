@@ -1,6 +1,6 @@
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-use bevy::ecs::{
+use bevy_ecs::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Mut, Ref},
     component::{ComponentId, Tick},
@@ -8,8 +8,8 @@ use bevy::ecs::{
     query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
     storage::{ComponentSparseSet, SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
+    ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref}
 };
-use bevy::ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
 
@@ -101,8 +101,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn set_archetype<'w>(
         fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the archetype.
         // We check the table components first since it is faster to retrieve data of this type.
@@ -134,7 +134,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     unsafe fn set_table<'w>(
         fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
@@ -206,7 +206,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     #[inline]
     fn update_component_access(
         state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         for &component in &*state.components {
             assert!(
@@ -221,8 +221,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+        archetype: &bevy_ecs::archetype::Archetype,
+        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
     ) {
         for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
@@ -280,8 +280,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn set_archetype<'w>(
         fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the archetype.
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
@@ -312,7 +312,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     unsafe fn set_table<'w>(
         fetch: &mut OneTraitFetch<'w, Trait>,
         state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
@@ -391,7 +391,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     #[inline]
     fn update_component_access(
         state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         for &component in &*state.components {
             assert!(
@@ -406,8 +406,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+        archetype: &bevy_ecs::archetype::Archetype,
+        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
     ) {
         for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {

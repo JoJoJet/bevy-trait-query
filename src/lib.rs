@@ -31,7 +31,7 @@
 //! ) {
 //!     // ...
 //! }
-//! # bevy::ecs::system::assert_is_system(show_tooltips_system);
+//! # bevy_ecs::system::assert_is_system(show_tooltips_system);
 //! ```
 //!
 //! Since Rust unfortunately lacks any kind of reflection, it is necessary to register each
@@ -186,7 +186,7 @@
 //!         println!("Tooltip: {}", tooltip.tooltip());
 //!     }
 //! }
-//! # bevy::ecs::system::assert_is_system(show_tooltips);
+//! # bevy_ecs::system::assert_is_system(show_tooltips);
 //! ```
 //!
 //! Trait queries support basic change detection filtration. So to get all the components that
@@ -252,13 +252,12 @@
 //! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
 //!
 
-use bevy::{
-    ecs::{
-        component::{ComponentId, StorageType},
-        world::World,
-    },
-    prelude::*,
+use bevy_ecs::{
+    component::{ComponentId, StorageType, ComponentStorage},
     ptr::{Ptr, PtrMut},
+    prelude::{
+        Component, Resource, World
+    }
 };
 
 #[cfg(test)]
@@ -303,7 +302,7 @@ impl RegisterExt for World {
     {
         let component_id = self.init_component::<C>();
         let registry = self
-            .get_resource_or_insert_with::<TraitImplRegistry<Trait>>(default)
+            .get_resource_or_insert_with::<TraitImplRegistry<Trait>>(Default::default)
             .into_inner();
         let meta = TraitImplMeta {
             size_bytes: std::mem::size_of::<C>(),
@@ -314,7 +313,8 @@ impl RegisterExt for World {
     }
 }
 
-impl RegisterExt for App {
+#[cfg(feature = "bevy")]
+impl RegisterExt for bevy::app::App {
     fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
         (C,): TraitQueryMarker<Trait, Covered = C>,
@@ -370,7 +370,6 @@ impl<Trait: ?Sized + TraitQuery> TraitImplRegistry<Trait> {
         self.components.push(component);
         self.meta.push(meta);
 
-        use bevy::ecs::component::ComponentStorage;
         match <C as Component>::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 self.table_components.push(component);
@@ -403,7 +402,7 @@ impl<T: ?Sized> Clone for TraitImplMeta<T> {
 
 #[doc(hidden)]
 pub mod imports {
-    pub use bevy::ecs::{
+    pub use bevy_ecs::{
         archetype::{Archetype, ArchetypeComponentId},
         component::Tick,
         component::{Component, ComponentId},
@@ -426,7 +425,7 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
     fn init(world: &mut World) -> Self {
         #[cold]
         fn missing_registry<T: ?Sized + 'static>() -> TraitImplRegistry<T> {
-            warn!(
+            tracing::warn!(
                 "no components found matching `{}`, did you forget to register them?",
                 std::any::type_name::<T>()
             );

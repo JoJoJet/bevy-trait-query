@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::*;
 use super::*;
 use std::fmt::{Debug, Display};
 
@@ -89,7 +90,7 @@ fn print_info(people: Query<One<&dyn Person>>, mut output: ResMut<Output>) {
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 fn age_up(mut people: Query<One<&mut dyn Person>>) {
@@ -163,7 +164,7 @@ fn print_all_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
                 .push(format!("{}: {}", person.name(), person.age()));
         }
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 fn age_up_fem(mut q: Query<&mut dyn Person, With<Fem>>) {
@@ -233,7 +234,7 @@ fn print_added_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Outp
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[test]
@@ -288,7 +289,7 @@ fn print_changed_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Ou
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[test]
@@ -338,7 +339,7 @@ fn print_added_one_info(
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[test]
@@ -389,7 +390,7 @@ fn print_changed_one_info(
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[test]
@@ -439,7 +440,7 @@ fn print_one_added_filter_info(
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[test]
@@ -490,7 +491,7 @@ fn print_one_changed_filter_info(
             .0
             .push(format!("{}: {}", person.name(), person.age()));
     }
-    output.0.push(default());
+    output.0.push(Default::default());
 }
 
 #[queryable]
