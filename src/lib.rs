@@ -313,8 +313,8 @@ impl RegisterExt for World {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl RegisterExt for bevy::app::App {
+#[cfg(feature = "bevy_app")]
+impl RegisterExt for bevy_app::App {
     fn register_component_as<Trait: ?Sized + TraitQuery, C: Component>(&mut self) -> &mut Self
     where
         (C,): TraitQueryMarker<Trait, Covered = C>,

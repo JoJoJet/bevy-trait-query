@@ -1,6 +1,6 @@
 #![allow(clippy::all)]
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use bevy_trait_query::*;
 use criterion::*;
 use std::fmt::Display;
