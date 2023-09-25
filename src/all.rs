@@ -2,10 +2,10 @@ use bevy_ecs::{
     change_detection::{DetectChanges, Mut, Ref},
     component::{ComponentId, Tick},
     entity::Entity,
+    ptr::UnsafeCellDeref,
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     storage::{SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
-    ptr::UnsafeCellDeref
 };
 
 use crate::{

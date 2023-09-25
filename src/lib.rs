@@ -253,11 +253,9 @@
 //!
 
 use bevy_ecs::{
-    component::{ComponentId, StorageType, ComponentStorage},
+    component::{ComponentId, ComponentStorage, StorageType},
+    prelude::{Component, Resource, World},
     ptr::{Ptr, PtrMut},
-    prelude::{
-        Component, Resource, World
-    }
 };
 
 #[cfg(test)]

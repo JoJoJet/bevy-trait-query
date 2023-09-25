@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::*;
 use super::*;
+use bevy_ecs::prelude::*;
 use std::fmt::{Debug, Display};
 
 // Required for proc macros.

@@ -5,10 +5,10 @@ use bevy_ecs::{
     change_detection::{Mut, Ref},
     component::{ComponentId, Tick},
     entity::Entity,
+    ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref},
     query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
     storage::{ComponentSparseSet, SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
-    ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref}
 };
 
 use crate::{debug_unreachable, zip_exact, TraitImplMeta, TraitQuery, TraitQueryState};
