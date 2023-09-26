@@ -1,12 +1,12 @@
-use bevy::ecs::{
+use bevy_ecs::{
     change_detection::{DetectChanges, Mut, Ref},
     component::{ComponentId, Tick},
     entity::Entity,
+    ptr::UnsafeCellDeref,
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     storage::{SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy::ptr::UnsafeCellDeref;
 
 use crate::{
     debug_unreachable, trait_registry_error, zip_exact, TraitImplMeta, TraitImplRegistry,
@@ -484,8 +484,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         fetch.table = Some(table);
     }
@@ -493,7 +493,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         fetch.table = Some(table);
     }
@@ -519,7 +519,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     #[inline]
     fn update_component_access(
         state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         for &component in &*state.components {
             assert!(
@@ -534,8 +534,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+        archetype: &bevy_ecs::archetype::Archetype,
+        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
     ) {
         for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
@@ -596,8 +596,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
-        _archetype: &'w bevy::ecs::archetype::Archetype,
-        table: &'w bevy::ecs::storage::Table,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         fetch.table = Some(table);
     }
@@ -606,7 +606,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
-        table: &'w bevy::ecs::storage::Table,
+        table: &'w bevy_ecs::storage::Table,
     ) {
         fetch.table = Some(table);
     }
@@ -632,7 +632,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     #[inline]
     fn update_component_access(
         state: &Self::State,
-        access: &mut bevy::ecs::query::FilteredAccess<ComponentId>,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         for &component in &*state.components {
             assert!(
@@ -647,8 +647,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
-        archetype: &bevy::ecs::archetype::Archetype,
-        access: &mut bevy::ecs::query::Access<bevy::ecs::archetype::ArchetypeComponentId>,
+        archetype: &bevy_ecs::archetype::Archetype,
+        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
     ) {
         for &component in &*state.components {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {

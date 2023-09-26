@@ -30,7 +30,9 @@ jobs:
           toolchain: stable
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-      - name: Run tests
+      - name: Run tests with minimal features
+        run: cargo test --lib --no-default-features
+      - name: "Run tests with default features"
         run: cargo test
 
   clippy:

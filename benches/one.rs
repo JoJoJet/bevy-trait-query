@@ -1,6 +1,7 @@
 #![allow(clippy::all)]
 
-use bevy::prelude::*;
+use bevy_core::Name;
+use bevy_ecs::prelude::*;
 use bevy_trait_query::*;
 use criterion::*;
 use std::fmt::Display;
@@ -58,7 +59,7 @@ impl<'w> Benchmark<'w> {
         }
 
         let query = world.query();
-        Self(world, query, default())
+        Self(world, query, Default::default())
     }
     // There will be some entities that have multiple trait impls, and will be filtered out.
     pub fn filtered() -> Self {
@@ -82,7 +83,7 @@ impl<'w> Benchmark<'w> {
         }
 
         let query = world.query();
-        Self(world, query, default())
+        Self(world, query, Default::default())
     }
 
     pub fn run(&mut self) {
