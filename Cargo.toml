@@ -1,6 +1,6 @@
 [package]
 name = "bevy-trait-query"
-version = "0.4.0-dev"
+version = "0.4.0"
 edition = "2021"
 
 description = "Implementation of trait queries for the bevy game engine"
@@ -15,29 +15,25 @@ categories = ["game-development"]
 default = ["bevy_app", "bevy_core"]
 
 [dependencies]
-bevy-trait-query-impl = { path = "proc-macro", version = "0.4.0-dev" }
+bevy-trait-query-impl = { path = "proc-macro", version = "0.4.0" }
 tracing = "0.1"
 
 [dependencies.bevy_ecs]
-git = "https://github.com/bevyengine/bevy"
-rev = "060711669903306c59eaea427498948992f0e768"
+version = "0.12"
 
 [dependencies.bevy_app]
-git = "https://github.com/bevyengine/bevy"
-rev = "060711669903306c59eaea427498948992f0e768"
+version = "0.12"
 optional = true
 
 [dependencies.bevy_core]
-git = "https://github.com/bevyengine/bevy"
-rev = "060711669903306c59eaea427498948992f0e768"
+version = "0.12"
 optional = true
 
 [dev-dependencies]
 criterion = "0.5"
 
 [dev-dependencies.bevy]
-git = "https://github.com/bevyengine/bevy"
-rev = "060711669903306c59eaea427498948992f0e768"
+version = "0.12"
 default-features = false
 
 [[bench]]
