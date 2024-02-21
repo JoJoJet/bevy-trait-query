@@ -405,9 +405,7 @@ pub mod imports {
         component::Tick,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Access, Added, Changed, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery,
-        },
+        query::{Access, Added, Changed, FilteredAccess, QueryItem, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -436,6 +434,19 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
             components: registry.components.clone().into_boxed_slice(),
             meta: registry.meta.clone().into_boxed_slice(),
         }
+    }
+
+    // REVIEW: inline?
+    // REVIEW: does it make sense to use the optional return type here? The call sites would be
+    // happy with this so I just made it use `Option`
+    fn get(world: &World) -> Option<Self> {
+        // REVIEW: is it ok to use the optional version here?
+        let registry = world.get_resource::<TraitImplRegistry<Trait>>()?;
+        // REVIEW: do we really need to clone here on get calls?
+        Some(Self {
+            components: registry.components.clone().into_boxed_slice(),
+            meta: registry.meta.clone().into_boxed_slice(),
+        })
     }
 
     #[inline]

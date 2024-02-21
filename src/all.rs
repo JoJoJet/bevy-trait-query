@@ -3,7 +3,7 @@ use bevy_ecs::{
     component::{ComponentId, Tick},
     entity::Entity,
     ptr::UnsafeCellDeref,
-    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    query::{QueryData, QueryItem, ReadOnlyQueryData, WorldQuery},
     storage::{SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -58,7 +58,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
         let ptr = unsafe {
             column
                 .get_data_ptr()
-                .byte_add(self.table_row.index() * meta.size_bytes)
+                .byte_add(self.table_row.as_usize() * meta.size_bytes)
         };
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
 
@@ -130,7 +130,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for ReadTraits<'w, Trait> {
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
+            entity: self.table.entities()[self.table_row.as_usize()],
             sparse_sets: self.sparse_sets,
             last_run: self.last_run,
             this_run: self.this_run,
@@ -155,7 +155,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for &ReadTraits<'w, Trait> {
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
+            entity: self.table.entities()[self.table_row.as_usize()],
             sparse_sets: self.sparse_sets,
             last_run: self.last_run,
             this_run: self.this_run,
@@ -246,7 +246,7 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
         let ptr = unsafe {
             column
                 .get_data_ptr()
-                .byte_add(self.table_row.index() * meta.size_bytes)
+                .byte_add(self.table_row.as_usize() * meta.size_bytes)
         };
         // SAFETY: The instance of `WriteTraits` that created this iterator
         // has exclusive access to all table components registered with the trait.
@@ -375,7 +375,7 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
         let sparse = WriteSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
+            entity: self.table.entities()[self.table_row.as_usize()],
             sparse_sets: self.sparse_sets,
             last_run: self.last_run,
             this_run: self.this_run,
@@ -402,7 +402,7 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
         let sparse = ReadSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
+            entity: self.table.entities()[self.table_row.as_usize()],
             sparse_sets: self.sparse_sets,
             last_run: self.last_run,
             this_run: self.this_run,
@@ -429,7 +429,7 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
         let sparse = WriteSparseTraitsIter {
             components: self.registry.sparse_components.iter(),
             meta: self.registry.sparse_meta.iter(),
-            entity: self.table.entities()[self.table_row.index()],
+            entity: self.table.entities()[self.table_row.as_usize()],
             sparse_sets: self.sparse_sets,
             last_run: self.last_run,
             this_run: self.this_run,
@@ -443,7 +443,10 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 /// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
 pub struct All<T: ?Sized>(T);
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait> {}
+unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
+    type ReadOnly = Self;
+}
+unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyQueryData for All<&'a Trait> {}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
@@ -451,7 +454,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for All<&'a Trait
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     type Item<'w> = ReadTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
-    type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
     #[inline]
@@ -478,7 +480,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -531,23 +533,29 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &bevy_ecs::archetype::Archetype,
+    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_read(archetype_component_id);
+    //         }
+    //     }
+    // }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
+    }
+
     #[inline]
     fn matches_component_set(
         state: &Self::State,
@@ -563,7 +571,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
-    type ReadOnly = All<&'a Trait>;
+    // type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
     #[inline]
@@ -590,7 +598,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -644,23 +652,29 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_write(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &bevy_ecs::archetype::Archetype,
+    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_write(archetype_component_id);
+    //         }
+    //     }
+    // }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
+    }
+
     #[inline]
     fn matches_component_set(
         state: &Self::State,

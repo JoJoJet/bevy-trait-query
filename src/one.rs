@@ -1,12 +1,12 @@
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use bevy_ecs::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::Archetype,
     change_detection::{Mut, Ref},
     component::{ComponentId, Tick},
     entity::Entity,
     ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref},
-    query::{Access, FilteredAccess, QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    query::{FilteredAccess, QueryData, QueryItem, ReadOnlyQueryData, WorldQuery},
     storage::{ComponentSparseSet, SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -64,14 +64,16 @@ impl<Trait: ?Sized> Copy for FetchStorage<'_, Trait> {}
 /// [`WorldQuery`] adapter that fetches entities with exactly one component implementing a trait.
 pub struct One<T>(pub T);
 
-unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyWorldQuery for One<&'a T> {}
+unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {
+    type ReadOnly = Self;
+}
+unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a T> {}
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     type Item<'w> = Ref<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
-    type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
     #[inline]
@@ -95,7 +97,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -157,7 +159,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        let table_row = table_row.index();
+        let table_row = table_row.as_usize();
         let dyn_ctor;
         let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
@@ -218,22 +220,27 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &bevy_ecs::archetype::Archetype,
+    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_read(archetype_component_id);
+    //         }
+    //     }
+    // }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
+    }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
     }
 
     #[inline]
@@ -250,7 +257,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
-    type ReadOnly = One<&'a Trait>;
+    // type ReadOnly = One<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
     #[inline]
@@ -274,7 +281,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -336,7 +343,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         entity: Entity,
         table_row: TableRow,
     ) -> Mut<'w, Trait> {
-        let table_row = table_row.index();
+        let table_row = table_row.as_usize();
         let dyn_ctor;
         let (ptr, added, changed) = match fetch.storage {
             // SAFETY: This function must have been called after `set_archetype`,
@@ -403,23 +410,29 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_write(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &bevy_ecs::archetype::Archetype,
+    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_write(archetype_component_id);
+    //         }
+    //     }
+    // }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
     }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
+    }
+
     #[inline]
     fn matches_component_set(
         state: &Self::State,
@@ -464,7 +477,7 @@ pub struct ChangeDetectionFetch<'w> {
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w>;
-    type ReadOnly = Self;
+    // type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -488,7 +501,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     // This will always be false for us, as we (so far) do not know at compile time whether the
     // components our trait has been impl'd for are stored in table or in sparse set
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -534,7 +547,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
                 // set_archetype must have been called already
                 debug_unreachable()
             }
-            ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.index()),
+            ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.as_usize()),
             ChangeDetectionStorage::SparseSet { components } => components
                 .get_added_tick(entity)
                 .unwrap_or_else(|| debug_unreachable()),
@@ -545,14 +558,14 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
             .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
-        Self::fetch(fetch, entity, table_row)
-    }
+    // #[inline(always)]
+    // unsafe fn filter_fetch(
+    //     fetch: &mut Self::Fetch<'_>,
+    //     entity: Entity,
+    //     table_row: TableRow,
+    // ) -> bool {
+    //     Self::fetch(fetch, entity, table_row)
+    // }
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -566,21 +579,27 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &Archetype,
+    //     access: &mut Access<ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_read(archetype_component_id);
+    //         }
+    //     }
+    // }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
+    }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
     }
 
     fn matches_component_set(
@@ -591,8 +610,11 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     }
 }
 
+unsafe impl<Trait: ?Sized + TraitQuery> QueryData for OneAdded<Trait> {
+    type ReadOnly = Self;
+}
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneAdded<Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for OneAdded<Trait> {}
 
 /// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
 /// implementing a trait, which was added since the last time the system ran.
@@ -603,7 +625,6 @@ pub struct OneChanged<Trait: ?Sized + TraitQuery> {
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w>;
-    type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -627,7 +648,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     // This will always be false for us, as we (so far) do not know at compile time whether the
     // components our trait has been impl'd for are stored in table or in sparse set
     const IS_DENSE: bool = false;
-    const IS_ARCHETYPAL: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -673,7 +694,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
                 // set_archetype must have been called already
                 debug_unreachable()
             }
-            ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.index()),
+            ChangeDetectionStorage::Table { ticks } => ticks.get(table_row.as_usize()),
             ChangeDetectionStorage::SparseSet { components } => components
                 .get_changed_tick(entity)
                 .unwrap_or_else(|| debug_unreachable()),
@@ -684,14 +705,14 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
             .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
-        Self::fetch(fetch, entity, table_row)
-    }
+    // #[inline(always)]
+    // unsafe fn filter_fetch(
+    //     fetch: &mut Self::Fetch<'_>,
+    //     entity: Entity,
+    //     table_row: TableRow,
+    // ) -> bool {
+    //     Self::fetch(fetch, entity, table_row)
+    // }
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -705,21 +726,27 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
         }
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        state: &Self::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        for &component in &*state.components {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-                access.add_read(archetype_component_id);
-            }
-        }
-    }
+    // #[inline]
+    // fn update_archetype_component_access(
+    //     state: &Self::State,
+    //     archetype: &Archetype,
+    //     access: &mut Access<ArchetypeComponentId>,
+    // ) {
+    //     for &component in &*state.components {
+    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
+    //             access.add_read(archetype_component_id);
+    //         }
+    //     }
+    // }
 
+    #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
+    }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
     }
 
     fn matches_component_set(
@@ -731,4 +758,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
 }
 
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyWorldQuery for OneChanged<Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> QueryData for OneChanged<Trait> {
+    type ReadOnly = Self;
+}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for OneChanged<Trait> {}
