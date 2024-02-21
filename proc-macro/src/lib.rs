@@ -364,14 +364,3 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         #trait_object_query_code
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
