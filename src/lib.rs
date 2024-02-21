@@ -405,7 +405,10 @@ pub mod imports {
         component::Tick,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Access, Added, Changed, FilteredAccess, QueryItem, WorldQuery},
+        query::{
+            Access, Added, Changed, FilteredAccess, QueryData, QueryFilter, QueryItem,
+            ReadOnlyQueryData, WorldQuery,
+        },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };

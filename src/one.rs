@@ -6,7 +6,7 @@ use bevy_ecs::{
     component::{ComponentId, Tick},
     entity::Entity,
     ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref},
-    query::{FilteredAccess, QueryData, QueryItem, ReadOnlyQueryData, WorldQuery},
+    query::{FilteredAccess, QueryData, QueryFilter, QueryItem, ReadOnlyQueryData, WorldQuery},
     storage::{ComponentSparseSet, SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -68,6 +68,11 @@ unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {
     type ReadOnly = Self;
 }
 unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a T> {}
+
+unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
+    type ReadOnly = Self;
+}
+unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a mut T> {}
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
@@ -558,15 +563,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
             .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
-    // #[inline(always)]
-    // unsafe fn filter_fetch(
-    //     fetch: &mut Self::Fetch<'_>,
-    //     entity: Entity,
-    //     table_row: TableRow,
-    // ) -> bool {
-    //     Self::fetch(fetch, entity, table_row)
-    // }
-
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         for &component in &*state.components {
@@ -615,6 +611,16 @@ unsafe impl<Trait: ?Sized + TraitQuery> QueryData for OneAdded<Trait> {
 }
 /// SAFETY: read-only access
 unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for OneAdded<Trait> {}
+impl<Trait: ?Sized + TraitQuery> QueryFilter for OneAdded<Trait> {
+    const IS_ARCHETYPAL: bool = false;
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        <Self as WorldQuery>::fetch(fetch, entity, table_row)
+    }
+}
 
 /// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
 /// implementing a trait, which was added since the last time the system ran.
@@ -705,15 +711,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
             .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
-    // #[inline(always)]
-    // unsafe fn filter_fetch(
-    //     fetch: &mut Self::Fetch<'_>,
-    //     entity: Entity,
-    //     table_row: TableRow,
-    // ) -> bool {
-    //     Self::fetch(fetch, entity, table_row)
-    // }
-
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         for &component in &*state.components {
@@ -762,3 +759,13 @@ unsafe impl<Trait: ?Sized + TraitQuery> QueryData for OneChanged<Trait> {
     type ReadOnly = Self;
 }
 unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for OneChanged<Trait> {}
+impl<Trait: ?Sized + TraitQuery> QueryFilter for OneChanged<Trait> {
+    const IS_ARCHETYPAL: bool = false;
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        <Self as WorldQuery>::fetch(fetch, entity, table_row)
+    }
+}

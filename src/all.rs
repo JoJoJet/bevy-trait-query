@@ -3,7 +3,7 @@ use bevy_ecs::{
     component::{ComponentId, Tick},
     entity::Entity,
     ptr::UnsafeCellDeref,
-    query::{QueryData, QueryItem, ReadOnlyQueryData, WorldQuery},
+    query::{QueryData, QueryFilter, QueryItem, ReadOnlyQueryData, WorldQuery},
     storage::{SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -447,6 +447,17 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
     type ReadOnly = Self;
 }
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyQueryData for All<&'a Trait> {}
+impl<'a, Trait: ?Sized + TraitQuery> QueryFilter for All<&'a Trait> {
+    const IS_ARCHETYPAL: bool = false;
+    unsafe fn filter_fetch(
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        // REVIEW: Is this ok?
+        true
+    }
+}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
