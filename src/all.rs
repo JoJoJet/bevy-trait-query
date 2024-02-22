@@ -3,7 +3,7 @@ use bevy_ecs::{
     component::{ComponentId, Tick},
     entity::Entity,
     ptr::UnsafeCellDeref,
-    query::{QueryData, QueryFilter, QueryItem, ReadOnlyQueryData, WorldQuery},
+    query::{QueryData, QueryItem, ReadOnlyQueryData, WorldQuery},
     storage::{SparseSets, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
