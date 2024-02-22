@@ -151,7 +151,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         unsafe impl #impl_generics #imports::QueryData for &#trait_object
         #where_clause
         {
-            type ReadOnly = &'__a #trait_object;
+            type ReadOnly = Self;
         }
         unsafe impl #impl_generics #imports::ReadOnlyQueryData for &#trait_object
         #where_clause
@@ -253,7 +253,9 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
 
         unsafe impl #impl_generics #imports::QueryData for &mut #trait_object
         #where_clause
-        { type ReadOnly = Self; }
+        {
+            type ReadOnly = &'__a #trait_object;
+        }
         unsafe impl #impl_generics #imports::ReadOnlyQueryData for &mut #trait_object
         #where_clause
         {}
