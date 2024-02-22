@@ -563,13 +563,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
     }
 }
 
+unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a mut Trait> {
+    type ReadOnly = All<&'a Trait>;
+}
+
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
-    // type ReadOnly = All<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
     #[inline]
