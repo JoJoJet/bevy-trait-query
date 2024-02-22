@@ -544,19 +544,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         *access = new_access;
     }
 
-    // #[inline]
-    // fn update_archetype_component_access(
-    //     state: &Self::State,
-    //     archetype: &bevy_ecs::archetype::Archetype,
-    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    // ) {
-    //     for &component in &*state.components {
-    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-    //             access.add_read(archetype_component_id);
-    //         }
-    //     }
-    // }
-
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
         TraitQueryState::init(world)
