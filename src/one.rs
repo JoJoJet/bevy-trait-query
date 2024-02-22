@@ -70,9 +70,8 @@ unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {
 unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a T> {}
 
 unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
-    type ReadOnly = Self;
+    type ReadOnly = One<&'a T>;
 }
-unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a mut T> {}
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.

@@ -447,17 +447,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
     type ReadOnly = Self;
 }
 unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyQueryData for All<&'a Trait> {}
-impl<'a, Trait: ?Sized + TraitQuery> QueryFilter for All<&'a Trait> {
-    const IS_ARCHETYPAL: bool = false;
-    unsafe fn filter_fetch(
-        _fetch: &mut Self::Fetch<'_>,
-        _entity: Entity,
-        _table_row: TableRow,
-    ) -> bool {
-        // REVIEW: Is this ok?
-        true
-    }
-}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
@@ -534,14 +523,25 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         state: &Self::State,
         access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
+        let mut not_first = false;
+        let mut new_access = access.clone();
         for &component in &*state.components {
             assert!(
                 !access.access().has_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<Trait>(),
             );
-            access.add_read(component);
+            if not_first {
+                let mut intermediate = access.clone();
+                intermediate.add_read(component);
+                new_access.append_or(&intermediate);
+                new_access.extend_access(&intermediate);
+            } else {
+                new_access.add_read(component);
+                not_first = true;
+            }
         }
+        *access = new_access;
     }
 
     // #[inline]
@@ -653,28 +653,26 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         state: &Self::State,
         access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
+        let mut not_first = false;
+        let mut new_access = access.clone();
         for &component in &*state.components {
             assert!(
                 !access.access().has_write(component),
                 "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
                 std::any::type_name::<Trait>(),
             );
-            access.add_write(component);
+            if not_first {
+                let mut intermediate = access.clone();
+                intermediate.add_write(component);
+                new_access.append_or(&intermediate);
+                new_access.extend_access(&intermediate);
+            } else {
+                new_access.add_write(component);
+                not_first = true;
+            }
         }
+        *access = new_access;
     }
-
-    // #[inline]
-    // fn update_archetype_component_access(
-    //     state: &Self::State,
-    //     archetype: &bevy_ecs::archetype::Archetype,
-    //     access: &mut bevy_ecs::query::Access<bevy_ecs::archetype::ArchetypeComponentId>,
-    // ) {
-    //     for &component in &*state.components {
-    //         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component) {
-    //             access.add_write(archetype_component_id);
-    //         }
-    //     }
-    // }
 
     #[inline]
     fn init_state(world: &mut World) -> Self::State {
