@@ -150,7 +150,9 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
     let trait_object_query_code = quote! {
         unsafe impl #impl_generics #imports::QueryData for &#trait_object
         #where_clause
-        { type ReadOnly = Self; }
+        {
+            type ReadOnly = &'__a #trait_object;
+        }
         unsafe impl #impl_generics #imports::ReadOnlyQueryData for &#trait_object
         #where_clause
         {}

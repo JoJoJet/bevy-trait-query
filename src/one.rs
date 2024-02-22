@@ -259,7 +259,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
-    // type ReadOnly = One<&'a Trait>;
     type State = TraitQueryState<Trait>;
 
     #[inline]
@@ -476,7 +475,6 @@ pub struct ChangeDetectionFetch<'w> {
 unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangeDetectionFetch<'w>;
-    // type ReadOnly = Self;
     type State = TraitQueryState<Trait>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
