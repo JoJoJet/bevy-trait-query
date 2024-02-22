@@ -185,8 +185,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
 
             const IS_DENSE: bool = <#my_crate::All<&#trait_object> as #imports::WorldQuery>::IS_DENSE;
-            // const IS_ARCHETYPAL: bool =
-            //     <#my_crate::All<&#trait_object> as #imports::WorldQuery>::IS_ARCHETYPAL;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -231,15 +229,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                     state, access,
                 );
             }
-
-            // #[inline]
-            // fn update_archetype_component_access(
-            //     state: &Self::State,
-            //     archetype: &#imports::Archetype,
-            //     access: &mut #imports::Access<#imports::ArchetypeComponentId>,
-            // ) {
-            //     <#my_crate::All<&#trait_object> as #imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
-            // }
 
             #[inline]
             fn init_state(world: &mut #imports::World) -> Self::State {
@@ -297,8 +286,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             }
 
             const IS_DENSE: bool = <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::IS_DENSE;
-            // const IS_ARCHETYPAL: bool =
-            //     <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::IS_ARCHETYPAL;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -343,16 +330,6 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                     state, access,
                 );
             }
-
-            // #[inline]
-            // fn update_archetype_component_access(
-            //     state: &Self::State,
-            //     archetype: &#imports::Archetype,
-            //     access: &mut #imports::Access<#imports::ArchetypeComponentId>,
-            // ) {
-            //     <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::update_archetype_component_access(state, archetype, access);
-            // }
-
 
             #[inline]
             fn init_state(world: &mut #imports::World) -> Self::State {

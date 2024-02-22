@@ -283,7 +283,6 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 
     const IS_DENSE: bool = false;
-    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -501,7 +500,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     // This will always be false for us, as we (so far) do not know at compile time whether the
     // components our trait has been impl'd for are stored in table or in sparse set
     const IS_DENSE: bool = false;
-    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -647,7 +645,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     // This will always be false for us, as we (so far) do not know at compile time whether the
     // components our trait has been impl'd for are stored in table or in sparse set
     const IS_DENSE: bool = false;
-    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
