@@ -254,11 +254,8 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
         unsafe impl #impl_generics_with_lifetime #imports::QueryData for &'__a mut #trait_object
         #where_clause
         {
-            type ReadOnly = &'__a mut #trait_object;
+            type ReadOnly = &'__a #trait_object;
         }
-        unsafe impl #impl_generics #imports::ReadOnlyQueryData for &mut #trait_object
-        #where_clause
-        {}
 
         unsafe impl #impl_generics_with_lifetime #imports::WorldQuery for &'__a mut #trait_object
         #where_clause
