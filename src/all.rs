@@ -536,7 +536,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
-                new_access.add_read(component);
+                new_access.and_with(component);
+                new_access.access_mut().add_read(component);
                 not_first = true;
             }
         }
@@ -655,7 +656,8 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
-                new_access.add_write(component);
+                new_access.and_with(component);
+                new_access.access_mut().add_write(component);
                 not_first = true;
             }
         }
