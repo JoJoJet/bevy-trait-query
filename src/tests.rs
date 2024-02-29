@@ -494,6 +494,49 @@ fn print_one_changed_filter_info(
     output.0.push(Default::default());
 }
 
+#[test]
+fn with_one_filter() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Henry".to_owned(), 22));
+    world.spawn((Human("Henry".to_owned(), 22), Dolphin(22)));
+    world.spawn(Dolphin(22));
+    world.spawn(Fem);
+
+    let mut schedule = Schedule::default();
+    schedule.add_systems(print_with_one_filter_info);
+
+    schedule.run(&mut world);
+
+    assert_eq!(
+        world.resource::<Output>().0,
+        &[
+            "People that are either Human or Dolphin but not both:",
+            "0v1",
+            "2v1",
+            "",
+        ]
+    );
+}
+
+// Prints the entity id of every `Person` with exactly one component implementing the trait
+fn print_with_one_filter_info(
+    people: Query<Entity, WithOne<dyn Person>>,
+    mut output: ResMut<Output>,
+) {
+    output
+        .0
+        .push("People that are either Human or Dolphin but not both:".to_string());
+    for person in (&people).into_iter() {
+        output.0.push(format!("{person:?}"));
+    }
+    output.0.push(Default::default());
+}
+
 #[queryable]
 pub trait Messages {
     fn send(&mut self, _: &dyn Display);

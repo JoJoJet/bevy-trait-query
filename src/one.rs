@@ -759,3 +759,117 @@ impl<Trait: ?Sized + TraitQuery> QueryFilter for OneChanged<Trait> {
         <Self as WorldQuery>::fetch(fetch, entity, table_row)
     }
 }
+
+/// [`WorldQuery`] filter for entities with exactly [one](crate::One) component
+/// implementing a trait.
+pub struct WithOne<Trait: ?Sized + TraitQuery>(PhantomData<&'static Trait>);
+
+// this takes inspiration from `With` in bevy's main repo
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
+    type Item<'w> = ();
+    type Fetch<'w> = ();
+    type State = TraitQueryState<Trait>;
+
+    #[inline]
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        item
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
+
+    const IS_DENSE: bool = false;
+    // const IS_ARCHETYPAL: bool = false;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut (),
+        _state: &Self::State,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        _table: &'w bevy_ecs::storage::Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        _fetch: &mut (),
+        _state: &Self::State,
+        _table: &'w bevy_ecs::storage::Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn fetch<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+    }
+
+    #[inline]
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        let mut new_access = access.clone();
+        let mut not_first = false;
+        for &component in &*state.components {
+            assert!(
+                !access.access().has_write(component),
+                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                std::any::type_name::<Trait>(),
+            );
+            if not_first {
+                let mut intermediate = access.clone();
+                intermediate.add_read(component);
+                new_access.append_or(&intermediate);
+                new_access.extend_access(&intermediate);
+            } else {
+                new_access.and_with(component);
+                new_access.access_mut().add_read(component);
+                not_first = true;
+            }
+        }
+        *access = new_access;
+    }
+
+    #[inline]
+    fn init_state(world: &mut World) -> Self::State {
+        TraitQueryState::init(world)
+    }
+
+    #[inline]
+    fn get_state(world: &World) -> Option<Self::State> {
+        TraitQueryState::get(world)
+    }
+
+    #[inline]
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        state.matches_component_set_one(set_contains_id)
+    }
+}
+
+/// SAFETY: read-only access
+unsafe impl<Trait: ?Sized + TraitQuery> QueryData for WithOne<Trait> {
+    type ReadOnly = Self;
+}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for WithOne<Trait> {}
+impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
+    const IS_ARCHETYPAL: bool = false;
+    unsafe fn filter_fetch(
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
+}
