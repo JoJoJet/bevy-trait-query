@@ -1,6 +1,6 @@
 [package]
 name = "bevy-trait-query"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 
 description = "Implementation of trait queries for the bevy game engine"
@@ -15,7 +15,7 @@ categories = ["game-development"]
 default = ["bevy_app", "bevy_core"]
 
 [dependencies]
-bevy-trait-query-impl = { path = "proc-macro", version = "0.4.0" }
+bevy-trait-query-impl = { path = "proc-macro", version = "0.5.0" }
 tracing = "0.1"
 
 [dependencies.bevy_ecs]
