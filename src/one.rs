@@ -776,8 +776,8 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     }
 
     #[inline]
-    unsafe fn init_fetch(
-        _world: UnsafeWorldCell<'_>,
+    unsafe fn init_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
@@ -797,7 +797,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &bevy_ecs::storage::Table) {}
+    unsafe fn set_table<'w>(_fetch: &mut (), _state: &Self::State, _table: &'w bevy_ecs::storage::Table) {}
 
     #[inline]
     unsafe fn fetch<'w>(
