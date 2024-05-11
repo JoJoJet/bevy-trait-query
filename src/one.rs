@@ -859,10 +859,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
 }
 
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> QueryData for WithOne<Trait> {
-    type ReadOnly = Self;
-}
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for WithOne<Trait> {}
 impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
