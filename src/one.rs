@@ -789,7 +789,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     }
 
     const IS_DENSE: bool = false;
-    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -817,23 +816,10 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
         access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         let mut new_access = access.clone();
-        let mut not_first = false;
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<Trait>(),
-            );
-            if not_first {
-                let mut intermediate = access.clone();
-                intermediate.add_read(component);
-                new_access.append_or(&intermediate);
-                new_access.extend_access(&intermediate);
-            } else {
-                new_access.and_with(component);
-                new_access.access_mut().add_read(component);
-                not_first = true;
-            }
+        for &component in state.components.iter() {
+            let mut intermediate = access.clone();
+            intermediate.and_with(component);
+            new_access.append_or(&intermediate);
         }
         *access = new_access;
     }
