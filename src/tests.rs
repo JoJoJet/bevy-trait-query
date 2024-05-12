@@ -563,7 +563,7 @@ fn without_any_filter() {
 
 // Prints the entity id of every Entity where none of its components implement the trait
 fn print_without_any_filter_info(
-    people: Query<Entity, WithoutOne<dyn Person>>,
+    people: Query<Entity, WithoutAny<dyn Person>>,
     mut output: ResMut<Output>,
 ) {
     output

@@ -858,10 +858,10 @@ impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
 
 /// [`WorldQuery`] filter for entities without any [one](crate::One) component
 /// implementing a trait.
-pub struct WithoutOne<Trait: ?Sized + TraitQuery>(PhantomData<&'static Trait>);
+pub struct WithoutAny<Trait: ?Sized + TraitQuery>(PhantomData<&'static Trait>);
 
 // this takes inspiration from `With` in bevy's main repo
-unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutOne<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutAny<Trait> {
     type Item<'w> = ();
     type Fetch<'w> = ();
     type State = TraitQueryState<Trait>;
@@ -937,7 +937,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutOne<Trait> {
 }
 
 /// SAFETY: read-only access
-impl<Trait: ?Sized + TraitQuery> QueryFilter for WithoutOne<Trait> {
+impl<Trait: ?Sized + TraitQuery> QueryFilter for WithoutAny<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
