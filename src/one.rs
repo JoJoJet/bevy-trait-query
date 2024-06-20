@@ -3,7 +3,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 use bevy_ecs::{
     archetype::Archetype,
     change_detection::{Mut, Ref},
-    component::{ComponentId, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref},
     query::{FilteredAccess, QueryData, QueryFilter, QueryItem, ReadOnlyQueryData, WorldQuery},
@@ -242,8 +242,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        None
     }
 
     #[inline]
@@ -429,8 +430,9 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        None
     }
 
     #[inline]
@@ -586,8 +588,9 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneAdded<Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        None
     }
 
     fn matches_component_set(
@@ -732,8 +735,9 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        None
     }
 
     fn matches_component_set(
@@ -840,8 +844,9 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        None
     }
 
     #[inline]

@@ -516,8 +516,8 @@ fn with_one_filter() {
         world.resource::<Output>().0,
         &[
             "People that are either Human or Dolphin but not both:",
-            "0v1",
-            "2v1",
+            "0v1|4294967296",
+            "2v1|4294967298",
             "",
         ]
     );
@@ -532,7 +532,7 @@ fn print_with_one_filter_info(
         .0
         .push("People that are either Human or Dolphin but not both:".to_string());
     for person in (&people).into_iter() {
-        output.0.push(format!("{person:?}"));
+        output.0.push(format!("{person}"));
     }
     output.0.push(Default::default());
 }
