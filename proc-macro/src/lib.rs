@@ -240,7 +240,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             #[inline]
             fn get_state(_: &#imports::Components) -> Option<Self::State> {
                 // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
-                None
+                panic!("transmuting and any other operations concerning the state of a query are currently broken and shouldn't be used. See https://github.com/JoJoJet/bevy-trait-query/issues/59");
             }
 
             #[inline]
@@ -341,7 +341,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             #[inline]
             fn get_state(_: &#imports::Components) -> Option<Self::State> {
                 // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
-                None
+                panic!("transmuting and any other operations concerning the state of a query are currently broken and shouldn't be used. See https://github.com/JoJoJet/bevy-trait-query/issues/59");
             }
 
             #[inline]
