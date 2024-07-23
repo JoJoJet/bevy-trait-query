@@ -570,7 +570,7 @@ fn print_without_any_filter_info(
         .0
         .push("People that are neither Human or Dolphin:".to_string());
     for person in (&people).into_iter() {
-        output.0.push(format!("{person:?}"));
+        output.0.push(format!("{person}"));
     }
     output.0.push(Default::default());
 }

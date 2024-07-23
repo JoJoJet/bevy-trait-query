@@ -923,8 +923,9 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutAny<Trait> {
     }
 
     #[inline]
-    fn get_state(world: &World) -> Option<Self::State> {
-        TraitQueryState::get(world)
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        panic!("transmuting and any other operations concerning the state of a query are currently broken and shouldn't be used. See https://github.com/JoJoJet/bevy-trait-query/issues/59");
     }
 
     #[inline]
