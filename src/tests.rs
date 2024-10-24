@@ -532,7 +532,7 @@ fn print_with_one_filter_info(
         .0
         .push("People that are either Human or Dolphin but not both:".to_string());
     for person in (&people).into_iter() {
-        output.0.push(format!("{person:?}"));
+        output.0.push(format!("{person}"));
     }
     output.0.push(Default::default());
 }
@@ -681,4 +681,63 @@ pub trait AssociatedTrait {
 fn associated_type_system<T: Display + 'static>(_q: Query<&dyn AssociatedTrait<T = T>>) {
     // Assert that this current function is a system.
     let _x = IntoSystem::into_system(associated_type_system::<T>);
+}
+
+fn query_and_transmute_and_print(
+    mut people: Query<(Entity, One<&dyn Person>)>,
+    mut output: ResMut<Output>,
+) {
+    for person in people.transmute_lens::<Entity>().query().iter() {
+        output.0.push(person.to_string());
+    }
+}
+
+#[test]
+fn transmute_doesnt_panic_if_no_trait_touched() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Garbanzo".to_owned(), 7));
+    world.spawn((Human("Garbanzo".to_owned(), 7), Dolphin(47)));
+    world.spawn((Human("Garbanzo".to_owned(), 14), Fem));
+    world.spawn(Dolphin(27));
+
+    let mut schedule = Schedule::default();
+    schedule.add_systems(query_and_transmute_and_print);
+
+    schedule.run(&mut world);
+
+    assert_eq!(world.resource::<Output>().0, &["0v1", "2v1", "3v1"]);
+}
+
+fn query_and_transmute_and_print_panic(
+    mut people: Query<(Entity, One<&dyn Person>)>,
+    mut output: ResMut<Output>,
+) {
+    for person in people.transmute_lens::<One<&dyn Person>>().query().iter() {
+        output.0.push(person.name().to_string());
+    }
+}
+
+#[test]
+#[should_panic]
+fn transmute_panics_if_trait_touched() {
+    let mut world = World::new();
+    world.init_resource::<Output>();
+    world
+        .register_component_as::<dyn Person, Human>()
+        .register_component_as::<dyn Person, Dolphin>();
+
+    world.spawn(Human("Garbanzo".to_owned(), 7));
+    world.spawn((Human("Garbanzo".to_owned(), 7), Dolphin(47)));
+    world.spawn((Human("Garbanzo".to_owned(), 14), Fem));
+    world.spawn(Dolphin(27));
+
+    let mut schedule = Schedule::default();
+    schedule.add_systems(query_and_transmute_and_print_panic);
+
+    schedule.run(&mut world);
 }
