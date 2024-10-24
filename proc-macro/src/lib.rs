@@ -250,6 +250,11 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
             ) -> bool {
                 <#my_crate::All<&#trait_object> as #imports::WorldQuery>::matches_component_set(state, set_contains_id)
             }
+
+            #[inline]
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                fetch
+            }
         }
 
         unsafe impl #impl_generics_with_lifetime #imports::QueryData for &'__a mut #trait_object
@@ -350,6 +355,11 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
                 set_contains_id: &impl Fn(#imports::ComponentId) -> bool,
             ) -> bool {
                 <#my_crate::All<&mut #trait_object> as #imports::WorldQuery>::matches_component_set(state, set_contains_id)
+            }
+
+            #[inline]
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                fetch
             }
         }
     };
