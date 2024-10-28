@@ -1,0 +1,46 @@
+[package]
+name = "bevy-trait-query"
+version = "0.5.1"
+edition = "2021"
+
+description = "Implementation of trait queries for the bevy game engine"
+repository = "https://github.com/JoJoJet/bevy-trait-query/"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "gamedev", "plugin", "query", "trait"]
+categories = ["game-development"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["bevy_app", "bevy_core"]
+
+[dependencies]
+bevy-trait-query-impl.workspace = true
+tracing.workspace = true
+bevy_ecs.workspace = true
+bevy_app = { workspace = true, optional = true}
+bevy_core = { workspace = true, optional = true}
+
+[dev-dependencies]
+criterion.workspace = true
+bevy = { workspace = true, default-features = false }
+
+[[bench]]
+name = "concrete"
+path = "../benches/concrete.rs"
+harness = false
+
+[[bench]]
+name = "all"
+path = "../benches/all.rs"
+harness = false
+
+[[bench]]
+name = "one"
+path = "../benches/one.rs"
+harness = false
+
+[[bench]]
+name = "fragmented"
+path = "../benches/fragmented.rs"
+harness = false
