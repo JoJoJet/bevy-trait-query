@@ -44,9 +44,9 @@ macro_rules! create_entities {
     ($world:ident; $( $variants:ident ),*) => {
         $(
             #[derive(Component)]
-            struct $variants(f32);
+            struct $variants { _dummy: f32 }
             for _ in 0..20 {
-                $world.spawn(($variants(0.0), RecA { messages: vec![] }, RecB { messages: vec![] }));
+                $world.spawn(($variants { _dummy: 0.0 }, RecA { messages: vec![] }, RecB { messages: vec![] }));
             }
         )*
     };
