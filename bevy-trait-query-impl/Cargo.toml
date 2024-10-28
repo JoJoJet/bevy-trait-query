@@ -9,13 +9,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "gamedev", "plugin", "query", "trait"]
 categories = ["game-development"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-proc-macro = true
+bevy-trait-query-impl = true
 
 [dependencies]
-proc-macro2 = "1"
-syn = { version = "2", features = ["full"] }
-quote = "1"
-proc-macro-crate = "1"
+proc-macro2.workspace = true
+syn = { workspace = true, features = ["full"] }
+quote.workspace = true
+proc-macro-crate.workspace = true

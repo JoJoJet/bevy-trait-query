@@ -6,13 +6,17 @@ members = [
 ]
 
 [workspace.dependencies]
-bevy-trait-query-impl = { path = "bevy-trait-query-impl" }
 tracing = "0.1"
 bevy_ecs = "0.14"
 bevy_app = "0.14"
 bevy_core = "0.14"
 
-# dev
+# proc macro
+proc-macro2 = "1"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro-crate = "1"
+
+# dev deps
 criterion = "0.5"
 bevy = { version = "0.14", default-features = false }
-

@@ -9,13 +9,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "gamedev", "plugin", "query", "trait"]
 categories = ["game-development"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [features]
 default = ["bevy_app", "bevy_core"]
 
 [dependencies]
-bevy-trait-query-impl.workspace = true
+bevy-trait-query-impl = "0.5.1"
 tracing.workspace = true
 bevy_ecs.workspace = true
 bevy_app = { workspace = true, optional = true}
