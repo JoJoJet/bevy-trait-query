@@ -6,13 +6,14 @@ Before using this crate, you should be familiar with bevy: https://bevyengine.or
 
 | Bevy Version | [Crate Version](CHANGELOG.md) |
 |--------------|---------------|
+| Preview      | Main branch   |
+| 0.14         | 0.6           |
 | 0.13         | 0.5           |
 | 0.12         | 0.4           |
 | 0.11         | 0.3           |
 | 0.10         | 0.2           |
 | 0.9          | 0.1           |
 | 0.8          | 0.0.3         |
-| Preview      | Main branch   |
 
 ## Note on reliability
 
@@ -134,11 +135,11 @@ fn show_tooltips(
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
-|                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
+|                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
 |-------------------|----------------|-------------------|-----------------|
-| 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
-| 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
-| 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
+| 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs       |
+| 2 matches         | 8.473 µs       | -                 | 106.47 µs       |
+| 1-2 matches       | -              | 14.619 µs         | 92.876 µs       |
 
 <!-- cargo-rdme end -->
 

@@ -22,7 +22,7 @@ use syn::{parse_quote, ItemTrait, Result, TraitItem};
 ///
 /// Trait queries are often the most *obvious* solution to a problem, but not always the best one.
 /// For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
-/// https://github.com/bevyengine/rfcs/pull/39.
+/// <https://github.com/bevyengine/rfcs/pull/39>.
 ///
 /// # Note
 ///
@@ -50,7 +50,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
     let trait_name = trait_definition.ident.clone();
 
     // Add `'static` bounds, unless the user asked us not to.
-    if !no_bounds.is_some() {
+    if no_bounds.is_none() {
         trait_definition.supertraits.push(parse_quote!('static));
 
         for param in &mut trait_definition.generics.params {
