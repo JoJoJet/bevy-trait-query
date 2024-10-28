@@ -245,11 +245,11 @@
 //!
 //! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 //!
-//! |                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
+//! |                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
 //! |-------------------|----------------|-------------------|-----------------|
-//! | 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
-//! | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
-//! | 1-2 matches       | -              | 16.959 µs         | 82.179 µs       |
+//! | 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs       |
+//! | 2 matches         | 8.473 µs       | -                 | 106.47 µs       |
+//! | 1-2 matches       | -              | 14.619 µs         | 92.876 µs       |
 //!
 
 use bevy_ecs::{
