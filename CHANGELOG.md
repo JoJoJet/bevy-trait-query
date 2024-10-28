@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 0.6 (Bevy 0.14)
+
+* Added support for Bevy 0.14.
+* Added `WithoutAny` filter to check if an entity is not holding any component of a certain trait
+* Update `WithOne` to only implement `QueryFilter`. This means it's not usable in the data position anymore. To migrate this change, use `One` instead, which is the intended way of doing that
+
 ## Version 0.3 (Bevy 0.11)
 
 * Added support for Bevy 0.11.

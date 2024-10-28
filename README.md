@@ -135,7 +135,7 @@ fn show_tooltips(
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
-|                   | Concrete type | One<dyn Trait> | All<dyn Trait> |
+|                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
 |-------------------|----------------|-------------------|-----------------|
 | 1 match           | 16.135 µs      | 31.441 µs         | 63.273 µs       |
 | 2 matches         | 17.501 µs      | -                 | 102.83 µs       |
