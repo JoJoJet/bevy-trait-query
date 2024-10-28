@@ -50,7 +50,7 @@ fn impl_trait_query(arg: TokenStream, item: TokenStream) -> Result<TokenStream2>
     let trait_name = trait_definition.ident.clone();
 
     // Add `'static` bounds, unless the user asked us not to.
-    if !no_bounds.is_some() {
+    if no_bounds.is_none() {
         trait_definition.supertraits.push(parse_quote!('static));
 
         for param in &mut trait_definition.generics.params {
