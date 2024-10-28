@@ -789,7 +789,6 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     }
 
     const IS_DENSE: bool = false;
-    // const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -817,23 +816,10 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
         access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
     ) {
         let mut new_access = access.clone();
-        let mut not_first = false;
-        for &component in &*state.components {
-            assert!(
-                !access.access().has_write(component),
-                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<Trait>(),
-            );
-            if not_first {
-                let mut intermediate = access.clone();
-                intermediate.add_read(component);
-                new_access.append_or(&intermediate);
-                new_access.extend_access(&intermediate);
-            } else {
-                new_access.and_with(component);
-                new_access.access_mut().add_read(component);
-                not_first = true;
-            }
+        for &component in state.components.iter() {
+            let mut intermediate = access.clone();
+            intermediate.and_with(component);
+            new_access.append_or(&intermediate);
         }
         *access = new_access;
     }
@@ -859,11 +845,100 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
 }
 
 /// SAFETY: read-only access
-unsafe impl<Trait: ?Sized + TraitQuery> QueryData for WithOne<Trait> {
-    type ReadOnly = Self;
-}
-unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for WithOne<Trait> {}
 impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
+    const IS_ARCHETYPAL: bool = false;
+    unsafe fn filter_fetch(
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
+}
+
+/// [`WorldQuery`] filter for entities without any [one](crate::One) component
+/// implementing a trait.
+pub struct WithoutAny<Trait: ?Sized + TraitQuery>(PhantomData<&'static Trait>);
+
+// this takes inspiration from `With` in bevy's main repo
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutAny<Trait> {
+    type Item<'w> = ();
+    type Fetch<'w> = ();
+    type State = TraitQueryState<Trait>;
+
+    #[inline]
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        item
+    }
+
+    #[inline]
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell<'_>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
+
+    const IS_DENSE: bool = false;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut (),
+        _state: &Self::State,
+        _archetype: &'w bevy_ecs::archetype::Archetype,
+        _table: &'w bevy_ecs::storage::Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &bevy_ecs::storage::Table) {}
+
+    #[inline]
+    unsafe fn fetch<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+    }
+
+    #[inline]
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut bevy_ecs::query::FilteredAccess<ComponentId>,
+    ) {
+        for &component in &*state.components {
+            assert!(
+                !access.access().has_write(component),
+                "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                std::any::type_name::<Trait>(),
+            );
+            access.and_without(component);
+        }
+    }
+
+    #[inline]
+    fn init_state(world: &mut World) -> Self::State {
+        TraitQueryState::init(world)
+    }
+
+    #[inline]
+    fn get_state(_: &Components) -> Option<Self::State> {
+        // TODO: fix this https://github.com/bevyengine/bevy/issues/13798
+        panic!("transmuting and any other operations concerning the state of a query are currently broken and shouldn't be used. See https://github.com/JoJoJet/bevy-trait-query/issues/59");
+    }
+
+    #[inline]
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        !state.components.iter().any(|&id| set_contains_id(id))
+    }
+}
+
+/// SAFETY: read-only access
+impl<Trait: ?Sized + TraitQuery> QueryFilter for WithoutAny<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
