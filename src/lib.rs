@@ -253,7 +253,7 @@
 //!
 
 use bevy_ecs::{
-    component::{ComponentId, ComponentStorage, StorageType},
+    component::{ComponentId, StorageType},
     prelude::{Component, Resource, World},
     ptr::{Ptr, PtrMut},
 };
@@ -317,7 +317,7 @@ impl RegisterExt for bevy_app::App {
     where
         (C,): TraitQueryMarker<Trait, Covered = C>,
     {
-        self.world.register_component_as::<Trait, C>();
+        self.world_mut().register_component_as::<Trait, C>();
         self
     }
 }
@@ -368,7 +368,7 @@ impl<Trait: ?Sized + TraitQuery> TraitImplRegistry<Trait> {
         self.components.push(component);
         self.meta.push(meta);
 
-        match <C as Component>::Storage::STORAGE_TYPE {
+        match <C as Component>::STORAGE_TYPE {
             StorageType::Table => {
                 self.table_components.push(component);
                 self.table_meta.push(meta);
@@ -403,7 +403,7 @@ pub mod imports {
     pub use bevy_ecs::{
         archetype::{Archetype, ArchetypeComponentId},
         component::Tick,
-        component::{Component, ComponentId},
+        component::{Component, ComponentId, Components},
         entity::Entity,
         query::{
             Access, Added, Changed, FilteredAccess, QueryData, QueryFilter, QueryItem,
@@ -439,18 +439,18 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
         }
     }
 
-    // REVIEW: inline?
-    // REVIEW: does it make sense to use the optional return type here? The call sites would be
-    // happy with this so I just made it use `Option`
-    fn get(world: &World) -> Option<Self> {
-        // REVIEW: is it ok to use the optional version here?
-        let registry = world.get_resource::<TraitImplRegistry<Trait>>()?;
-        // REVIEW: do we really need to clone here on get calls?
-        Some(Self {
-            components: registry.components.clone().into_boxed_slice(),
-            meta: registry.meta.clone().into_boxed_slice(),
-        })
-    }
+    // // REVIEW: inline?
+    // // REVIEW: does it make sense to use the optional return type here? The call sites would be
+    // // happy with this so I just made it use `Option`
+    // fn get(world: &World) -> Option<Self> {
+    //     // REVIEW: is it ok to use the optional version here?
+    //     let registry = world.get_resource::<TraitImplRegistry<Trait>>()?;
+    //     // REVIEW: do we really need to clone here on get calls?
+    //     Some(Self {
+    //         components: registry.components.clone().into_boxed_slice(),
+    //         meta: registry.meta.clone().into_boxed_slice(),
+    //     })
+    // }
 
     #[inline]
     fn matches_component_set_any(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
