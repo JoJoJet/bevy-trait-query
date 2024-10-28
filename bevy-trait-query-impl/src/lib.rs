@@ -22,7 +22,7 @@ use syn::{parse_quote, ItemTrait, Result, TraitItem};
 ///
 /// Trait queries are often the most *obvious* solution to a problem, but not always the best one.
 /// For examples of strong real-world use-cases, check out the RFC for trait queries in `bevy`:
-/// https://github.com/bevyengine/rfcs/pull/39.
+/// <https://github.com/bevyengine/rfcs/pull/39>.
 ///
 /// # Note
 ///
