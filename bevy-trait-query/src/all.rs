@@ -440,7 +440,11 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
 
 /// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
 ///
-/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly.
+/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly. To be
+/// specific, the following queries are equivalent:
+///
+/// - `Query<All<&dyn Trait>>` has the same outcome as `Query<&dyn Trait>`
+/// - `Query<All<&mut dyn Trait>>` has the same outcome as `Query<&mut dyn Trait>`
 pub struct All<T: ?Sized>(T);
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
