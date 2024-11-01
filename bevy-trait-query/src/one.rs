@@ -62,6 +62,12 @@ impl<Trait: ?Sized> Clone for FetchStorage<'_, Trait> {
 impl<Trait: ?Sized> Copy for FetchStorage<'_, Trait> {}
 
 /// [`WorldQuery`] adapter that fetches entities with exactly one component implementing a trait.
+///
+/// Depending on whether you requested shared or exclusive access to the trait objects, iterating
+/// over these queries yields types with different capacities
+///
+/// - `Query<One<&dyn Trait>>` yields a [`Ref`] object
+/// - `Query<One<&mut dyn Trait>>` yields a [`Mut`] object
 pub struct One<T>(pub T);
 
 unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {

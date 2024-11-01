@@ -227,7 +227,7 @@ fn added_all() {
 }
 
 // Prints the name and age of every newly added `Person`.
-fn print_added_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_added_all_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
     output.0.push("Added people:".to_string());
     for person in people.iter().flat_map(|p| p.iter_added()) {
         output
@@ -282,7 +282,7 @@ fn changed_all() {
 }
 
 // Prints the name and age of every `Person` whose info has changed in some way
-fn print_changed_all_info(people: Query<All<&dyn Person>>, mut output: ResMut<Output>) {
+fn print_changed_all_info(people: Query<&dyn Person>, mut output: ResMut<Output>) {
     output.0.push("Changed people:".to_string());
     for person in people.iter().flat_map(|p| p.iter_changed()) {
         output

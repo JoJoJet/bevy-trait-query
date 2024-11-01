@@ -1,3 +1,9 @@
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/JoJoJet/bevy-trait-query#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy-trait-query)
+[![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy-trait-query)
+[![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy_trait_query/latest/bevy_trait_query/)
+[![CI](https://github.com/JoJoJet/bevy-trait-query/workflows/CI/badge.svg)](https://github.com/JoJoJet/bevy-trait-query/actions)
+
 # bevy-trait-query
 
 An implementation of trait queries for the bevy game engine.
@@ -115,7 +121,7 @@ fn show_tooltips(
 ```
 
 Alternatively, if you expect to only have component implementing the trait for each entity,
-you can use the filter [`One`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.One.html). This has significantly better performance than iterating
+you can use the filter [`One`]. This has significantly better performance than iterating
 over all trait impls.
 
 ```rust
@@ -131,15 +137,59 @@ fn show_tooltips(
 }
 ```
 
+Trait queries support basic change detection filtration.
+
+- queries requesting shared access yield [`ReadTraits`] which is similar to
+  [`bevy_ecs::change_detection::Ref`]
+- queries requesting exclusive access yield [`WriteTraits`] which is similar to
+  [`bevy_ecs::change_detection::Mut`]
+
+To get all the components that implement the target trait, and have also changed in some way
+since the last tick, you can:
+```rust
+fn show_tooltips(
+    tooltips_query: Query<All<&dyn Tooltip>>
+    // tooltips_query: Query<&dyn Tooltip>  // <-- equivalent to line above
+    // ...
+) {
+    // Iterate over all entities with at least one component implementing `Tooltip`
+    for entity_tooltips in &tooltips_query {
+        // Iterate over each component for the current entity that changed since the last time the system was run.
+        for tooltip in entity_tooltips.iter_changed() {
+            println!("Changed Tooltip: {}", tooltip.tooltip());
+        }
+    }
+}
+```
+
+Similar to [`iter_changed`](ReadTraits::iter_changed), we have [`iter_added`](ReadTraits::iter_added)
+to detect entities which have had a trait-implementing component added since the last tick.
+
+If you know you have only one component that implements the target trait,
+you can use `OneAdded` or `OneChanged` which behave more like the typical
+`bevy` `Added/Changed` filters:
+```rust
+fn show_tooltips(
+    tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
+    // ...
+) {
+    // Iterate over each entity that has one tooltip implementing component that has also changed
+    for tooltip in &tooltips_query {
+        println!("Changed Tooltip: {}", tooltip.tooltip());
+    }
+}
+```
+Note in the above example how `OneChanged` does *not* take a reference to the trait object!
+
 ### Performance
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
-|                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
-|-------------------|----------------|-------------------|-----------------|
-| 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs       |
-| 2 matches         | 8.473 µs       | -                 | 106.47 µs       |
-| 1-2 matches       | -              | 14.619 µs         | 92.876 µs       |
+|                   | Concrete type  | `One<dyn Trait>`    | `All<dyn Trait>`  |
+|-------------------|----------------|---------------------|-------------------|
+| 1 match           | 8.395 µs       | 28.174 µs           | 81.027 µs         |
+| 2 matches         | 8.473 µs       | -                   | 106.47 µs         |
+| 1-2 matches       | -              | 14.619 µs           | 92.876 µs         |
 
 <!-- cargo-rdme end -->
 

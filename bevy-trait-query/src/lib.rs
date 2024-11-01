@@ -14,9 +14,6 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
-//! # // Required to make the macro work, because cargo thinks
-//! # // we are in `bevy_trait_query` when compiling this example.
-//! # use bevy_trait_query::*;
 //!
 //! // Just add this attribute...
 //! #[bevy_trait_query::queryable]
@@ -164,7 +161,7 @@
 //! ```
 //!
 //! Alternatively, if you expect to only have component implementing the trait for each entity,
-//! you can use the filter [`One`](crate::one::One). This has significantly better performance than iterating
+//! you can use the filter [`One`]. This has significantly better performance than iterating
 //! over all trait impls.
 //!
 //! ```
@@ -189,8 +186,15 @@
 //! # bevy_ecs::system::assert_is_system(show_tooltips);
 //! ```
 //!
-//! Trait queries support basic change detection filtration. So to get all the components that
-//! implement the target trait, and have also changed in some way since the last tick, you can:
+//! Trait queries support basic change detection filtration.
+//!
+//! - queries requesting shared access yield [`ReadTraits`] which is similar to
+//!   [`bevy_ecs::change_detection::Ref`]
+//! - queries requesting exclusive access yield [`WriteTraits`] which is similar to
+//!   [`bevy_ecs::change_detection::Mut`]
+//!
+//! To get all the components that implement the target trait, and have also changed in some way
+//! since the last tick, you can:
 //! ```no_run
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
@@ -202,6 +206,7 @@
 //! #
 //! fn show_tooltips(
 //!     tooltips_query: Query<All<&dyn Tooltip>>
+//!     // tooltips_query: Query<&dyn Tooltip>  // <-- equivalent to line above
 //!     // ...
 //! ) {
 //!     // Iterate over all entities with at least one component implementing `Tooltip`
@@ -214,7 +219,7 @@
 //! }
 //! ```
 //!
-//! Similar to [`iter_changed`](crate::all::All::iter_changed), we have [`iter_added`](crate::all::All::iter_added)
+//! Similar to [`iter_changed`](ReadTraits::iter_changed), we have [`iter_added`](ReadTraits::iter_added)
 //! to detect entities which have had a trait-implementing component added since the last tick.
 //!
 //! If you know you have only one component that implements the target trait,
@@ -245,11 +250,11 @@
 //!
 //! The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 //!
-//! |                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
-//! |-------------------|----------------|-------------------|-----------------|
-//! | 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs       |
-//! | 2 matches         | 8.473 µs       | -                 | 106.47 µs       |
-//! | 1-2 matches       | -              | 14.619 µs         | 92.876 µs       |
+//! |                   | Concrete type  | `One<dyn Trait>`    | `All<dyn Trait>`  |
+//! |-------------------|----------------|---------------------|-------------------|
+//! | 1 match           | 8.395 µs       | 28.174 µs           | 81.027 µs         |
+//! | 2 matches         | 8.473 µs       | -                   | 106.47 µs         |
+//! | 1-2 matches       | -              | 14.619 µs           | 92.876 µs         |
 //!
 
 use bevy_ecs::{
@@ -438,19 +443,6 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
             meta: registry.meta.clone().into_boxed_slice(),
         }
     }
-
-    // // REVIEW: inline?
-    // // REVIEW: does it make sense to use the optional return type here? The call sites would be
-    // // happy with this so I just made it use `Option`
-    // fn get(world: &World) -> Option<Self> {
-    //     // REVIEW: is it ok to use the optional version here?
-    //     let registry = world.get_resource::<TraitImplRegistry<Trait>>()?;
-    //     // REVIEW: do we really need to clone here on get calls?
-    //     Some(Self {
-    //         components: registry.components.clone().into_boxed_slice(),
-    //         meta: registry.meta.clone().into_boxed_slice(),
-    //     })
-    // }
 
     #[inline]
     fn matches_component_set_any(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
