@@ -14,6 +14,11 @@ use crate::{
 };
 
 /// Read-access to all components implementing a trait for a given entity.
+///
+/// This supports change detection and detection for added objects via
+///
+/// - [`ReadTraits::iter_changed`]
+/// - [`ReadTraits::iter_added`]
 pub struct ReadTraits<'a, Trait: ?Sized + TraitQuery> {
     // Read-only access to the global trait registry.
     // Since no one outside of the crate can name the registry type,
@@ -200,6 +205,11 @@ impl<Trait: ?Sized> Clone for AllTraitsFetch<'_, Trait> {
 impl<Trait: ?Sized> Copy for AllTraitsFetch<'_, Trait> {}
 
 /// Write-access to all components implementing a trait for a given entity.
+///
+/// This supports change detection and detection for added objects via
+///
+/// - [`WriteTraits::iter_changed`]
+/// - [`WriteTraits::iter_added`]
 pub struct WriteTraits<'a, Trait: ?Sized + TraitQuery> {
     // Read-only access to the global trait registry.
     // Since no one outside of the crate can name the registry type,
@@ -438,13 +448,19 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     }
 }
 
-/// `WorldQuery` adapter that fetches all implementations of a given trait for an entity.
+/// [`WorldQuery`] adapter that fetches all implementations of a given trait for an entity.
 ///
-/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a `WorldQuery` directly. To be
+/// You can usually just use `&dyn Trait` or `&mut dyn Trait` as a [`WorldQuery`] directly. To be
 /// specific, the following queries are equivalent:
 ///
 /// - `Query<All<&dyn Trait>>` has the same outcome as `Query<&dyn Trait>`
 /// - `Query<All<&mut dyn Trait>>` has the same outcome as `Query<&mut dyn Trait>`
+///
+/// Depending on whether you requested shared or exclusive access to the trait objects, iterating
+/// over these queries yields types with different capacities
+///
+/// - `Query<&dyn Trait>` yields a [`ReadTraits`] object
+/// - `Query<&mut dyn Trait>` yields a [`WriteTraits`] object
 pub struct All<T: ?Sized>(T);
 
 unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
