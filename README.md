@@ -1,16 +1,8 @@
-<div class = "rustdoc-hidden">
-
-[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/JoJoJet/bevy-trait-query#license)
-[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy-trait-query)
-[![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy-trait-query)
-[![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy_trait_query/latest/bevy_trait_query/)
-[![CI](https://github.com/JoJoJet/bevy-trait-query/workflows/CI/badge.svg)](https://github.com/JoJoJet/bevy-trait-query/actions)
-
-# Bevy Trait Query
+# bevy-trait-query
 
 An implementation of trait queries for the bevy game engine.
 
-Before using this crate, you should be familiar with bevy: <https://bevyengine.org/>.
+Before using this crate, you should be familiar with bevy: https://bevyengine.org/.
 
 | Bevy Version | [Crate Version](CHANGELOG.md) |
 |--------------|---------------|
@@ -29,8 +21,6 @@ While this crate has seen some use in the world with no issues yet,
 it is still quite new and experimental. Use with caution (and miri!).
 
 If you find a bug, please [open an issue](https://github.com/JoJoJet/bevy-trait-query/issues).
-
-</div>
 
 ## Overview
 
@@ -141,22 +131,18 @@ fn show_tooltips(
 }
 ```
 
-<div class = "rustdoc-hidden">
-
 ### Performance
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
-|                   | Concrete type  | `One<dyn Trait>`  | `All<dyn Trait>` |
-|-------------------|----------------|-------------------|------------------|
-| 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs        |
-| 2 matches         | 8.473 µs       | -                 | 106.47 µs        |
-| 1-2 matches       | -              | 14.619 µs         | 92.876 µs        |
+|                   | Concrete type  | One<dyn Trait>    | All<dyn Trait>  |
+|-------------------|----------------|-------------------|-----------------|
+| 1 match           | 8.395 µs       | 28.174 µs         | 81.027 µs       |
+| 2 matches         | 8.473 µs       | -                 | 106.47 µs       |
+| 1-2 matches       | -              | 14.619 µs         | 92.876 µs       |
 
 <!-- cargo-rdme end -->
 
 # License
 
 [MIT](LICENSE-MIT) or [APACHE-2.0](LICENSE-APACHE)
-
-</div>
