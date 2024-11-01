@@ -121,7 +121,7 @@ fn show_tooltips(
 ```
 
 Alternatively, if you expect to only have component implementing the trait for each entity,
-you can use the filter [`One`]. This has significantly better performance than iterating
+you can use the filter [`One`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.One.html). This has significantly better performance than iterating
 over all trait impls.
 
 ```rust
@@ -139,10 +139,10 @@ fn show_tooltips(
 
 Trait queries support basic change detection filtration.
 
-- queries requesting shared access yield [`ReadTraits`] which is similar to
-  [`bevy_ecs::change_detection::Ref`]
-- queries requesting exclusive access yield [`WriteTraits`] which is similar to
-  [`bevy_ecs::change_detection::Mut`]
+- queries requesting shared access yield [`ReadTraits`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/all/struct.ReadTraits.html) which is
+  similar to [`Ref`](https://docs.rs/bevy/latest/bevy/ecs/change_detection/struct.Ref.html)
+- queries requesting exclusive access yield [`WriteTraits`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/all/struct.WriteTraits.html) which is
+  similar to [`Mut`](https://docs.rs/bevy/latest/bevy/ecs/change_detection/struct.Mut.html)
 
 To get all the components that implement the target trait, and have also changed in some way
 since the last tick, you can:
@@ -162,12 +162,12 @@ fn show_tooltips(
 }
 ```
 
-Similar to [`iter_changed`](ReadTraits::iter_changed), we have [`iter_added`](ReadTraits::iter_added)
+Similar to [`iter_changed`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/all/struct.ReadTraits.html), we have [`iter_added`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/all/struct.ReadTraits.html)
 to detect entities which have had a trait-implementing component added since the last tick.
 
 If you know you have only one component that implements the target trait,
-you can use `OneAdded` or `OneChanged` which behave more like the typical
-`bevy` `Added/Changed` filters:
+you can use [`OneAdded`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.OneAdded.html) or [`OneChanged`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.OneChanged.html) which behave more like the typical
+`bevy` [`Added`](https://docs.rs/bevy/latest/bevy/ecs/query/struct.Added.html)/[`Changed`](https://docs.rs/bevy/latest/bevy/ecs/query/struct.Changed.html) filters:
 ```rust
 fn show_tooltips(
     tooltips_query: Query<One<&dyn Tooltip>, OneChanged<dyn Tooltip>>
@@ -179,13 +179,13 @@ fn show_tooltips(
     }
 }
 ```
-Note in the above example how `OneChanged` does *not* take a reference to the trait object!
+Note in the above example how [`OneChanged`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.OneChanged.html) does *not* take a reference to the trait object!
 
 ### Performance
 
 The performance of trait queries is quite competitive. Here are some benchmarks for simple cases:
 
-|                   | Concrete type  | `One<dyn Trait>`    | `All<dyn Trait>`  |
+|                   | Concrete type  | [`One<dyn Trait>`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/one/struct.One.html)    | [`All<dyn Trait>`](https://docs.rs/bevy-trait-query/latest/bevy_trait_query/all/struct.All.html) |
 |-------------------|----------------|---------------------|-------------------|
 | 1 match           | 8.395 µs       | 28.174 µs           | 81.027 µs         |
 | 2 matches         | 8.473 µs       | -                   | 106.47 µs         |
