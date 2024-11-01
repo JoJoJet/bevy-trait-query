@@ -444,19 +444,6 @@ impl<Trait: ?Sized + TraitQuery> TraitQueryState<Trait> {
         }
     }
 
-    // // REVIEW: inline?
-    // // REVIEW: does it make sense to use the optional return type here? The call sites would be
-    // // happy with this so I just made it use `Option`
-    // fn get(world: &World) -> Option<Self> {
-    //     // REVIEW: is it ok to use the optional version here?
-    //     let registry = world.get_resource::<TraitImplRegistry<Trait>>()?;
-    //     // REVIEW: do we really need to clone here on get calls?
-    //     Some(Self {
-    //         components: registry.components.clone().into_boxed_slice(),
-    //         meta: registry.meta.clone().into_boxed_slice(),
-    //     })
-    // }
-
     #[inline]
     fn matches_component_set_any(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.components.iter().copied().any(set_contains_id)
