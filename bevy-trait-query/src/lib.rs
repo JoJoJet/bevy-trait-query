@@ -188,10 +188,10 @@
 //!
 //! Trait queries support basic change detection filtration.
 //!
-//! - queries requesting shared access yield [`crate::all::ReadTraits`] which is similar to
-//!   [`Ref`](bevy_ecs::change_detection::Ref)
-//! - queries requesting exclusive access yield [`crate::all::WriteTraits`] which is similar to
-//!   [`Mut`](bevy_ecs::change_detection::Mut)
+//! - queries requesting shared access yield [`ReadTraits`](`crate::all::ReadTraits`) which is
+//!   similar to [`Ref`](https://docs.rs/bevy/latest/bevy/ecs/change_detection/struct.Ref.html)
+//! - queries requesting exclusive access yield [`WriteTraits`](`crate::all::WriteTraits`) which is
+//!   similar to [`Mut`](https://docs.rs/bevy/latest/bevy/ecs/change_detection/struct.Mut.html)
 //!
 //! To get all the components that implement the target trait, and have also changed in some way
 //! since the last tick, you can:
@@ -224,7 +224,7 @@
 //!
 //! If you know you have only one component that implements the target trait,
 //! you can use [`OneAdded`](crate::one::OneAdded) or [`OneChanged`](crate::one::OneChanged) which behave more like the typical
-//! `bevy` [`Added`](bevy::prelude::Added)/[`Changed`](bevy::prelude::Changed) filters:
+//! `bevy` [`Added`](https://docs.rs/bevy/latest/bevy/ecs/query/struct.Added.html)/[`Changed`](https://docs.rs/bevy/latest/bevy/ecs/query/struct.Changed.html) filters:
 //! ```no_run
 //! # use bevy::prelude::*;
 //! # use bevy_trait_query::*;
