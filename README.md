@@ -1,3 +1,9 @@
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/JoJoJet/bevy-trait-query#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy-trait-query)
+[![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy-trait-query)
+[![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy_trait_query/latest/bevy_trait_query/)
+[![CI](https://github.com/JoJoJet/bevy-trait-query/workflows/CI/badge.svg)](https://github.com/JoJoJet/bevy-trait-query/actions)
+
 # bevy-trait-query
 
 An implementation of trait queries for the bevy game engine.
