@@ -1,1 +1,1 @@
-tag-name = "{{prefix}}{{crate_name}}-v{{version}}"
+tag-name = "{{prefix}}v{{version}}"
