@@ -13,7 +13,7 @@ categories = ["game-development"]
 default = ["bevy_app", "bevy_core"]
 
 [dependencies]
-bevy-trait-query-impl = { version = "0.6.0" }
+bevy-trait-query-impl.workspace = true
 tracing.workspace = true
 bevy_ecs.workspace = true
 bevy_app = { workspace = true, optional = true}
