@@ -109,18 +109,18 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         let mut new_access = access.clone();
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<Trait>(),
             );
             if not_first {
                 let mut intermediate = access.clone();
-                intermediate.add_read(component);
+                intermediate.add_component_read(component);
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
                 new_access.and_with(component);
-                new_access.access_mut().add_read(component);
+                new_access.access_mut().add_component_read(component);
                 not_first = true;
             }
         }
@@ -144,6 +144,11 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         state.matches_component_set_any(set_contains_id)
+    }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
     }
 }
 
@@ -230,18 +235,18 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         let mut new_access = access.clone();
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
                 std::any::type_name::<Trait>(),
             );
             if not_first {
                 let mut intermediate = access.clone();
-                intermediate.add_write(component);
+                intermediate.add_component_write(component);
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
                 new_access.and_with(component);
-                new_access.access_mut().add_write(component);
+                new_access.access_mut().add_component_write(component);
                 not_first = true;
             }
         }
@@ -265,5 +270,10 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         state.matches_component_set_any(set_contains_id)
+    }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
     }
 }

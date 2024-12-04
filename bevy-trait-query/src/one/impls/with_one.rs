@@ -88,10 +88,15 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithOne<Trait> {
     ) -> bool {
         state.matches_component_set_one(set_contains_id)
     }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
 }
 
 /// SAFETY: read-only access
-impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> QueryFilter for WithOne<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
         _fetch: &mut Self::Fetch<'_>,

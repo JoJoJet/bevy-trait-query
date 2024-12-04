@@ -52,20 +52,26 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadTableTraitsIter<'a, Trait>
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining table components that are registered,
         // until we find one that exists in the table.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        // SAFETY: We have shared access to the entire column.
-        let ptr = unsafe {
-            column
-                .get_data_ptr()
-                .byte_add(self.table_row.as_usize() * meta.size_bytes)
-        };
+        let (ptr, component, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+            .find_map(|(&component, meta)| {
+                // SAFETY: we know that the `table_row` is a valid index.
+                let ptr = unsafe { self.table.get_component(component, self.table_row) }?;
+                Some((ptr, component, meta))
+            })?;
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
 
-        // SAFETY: we know that the `table_row` is a valid index.
+        // SAFETY:
         // Read access has been registered, so we can dereference it immutably.
-        let added_tick = unsafe { column.get_added_tick_unchecked(self.table_row).deref() };
-        let changed_tick = unsafe { column.get_changed_tick_unchecked(self.table_row).deref() };
+        let added_tick = unsafe {
+            self.table
+                .get_added_tick(component, self.table_row)?
+                .deref()
+        };
+        let changed_tick = unsafe {
+            self.table
+                .get_changed_tick(component, self.table_row)?
+                .deref()
+        };
 
         Some(Ref::new(
             trait_object,
@@ -94,13 +100,12 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for ReadSparseTraitsIter<'a, Trait
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining sparse set components that are registered,
         // until we find one that exists in the archetype.
-        let ((ptr, ticks_ptr), meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+        let (ptr, ticks_ptr, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
             .find_map(|(&component, meta)| {
-            self.sparse_sets
-                .get(component)
-                .and_then(|set| set.get_with_ticks(self.entity))
-                .zip(Some(meta))
-        })?;
+                let set = self.sparse_sets.get(component)?;
+                let (ptr, ticks, _) = set.get_with_ticks(self.entity)?;
+                Some((ptr, ticks, meta))
+            })?;
         let trait_object = unsafe { meta.dyn_ctor.cast(ptr) };
         let added_tick = unsafe { ticks_ptr.added.deref() };
         let changed_tick = unsafe { ticks_ptr.changed.deref() };

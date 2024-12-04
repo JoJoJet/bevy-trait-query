@@ -58,13 +58,12 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining table components that are registered,
         // until we find one that exists in the table.
-        let (column, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
-            .find_map(|(&component, meta)| self.table.get_column(component).zip(Some(meta)))?;
-        let ptr = unsafe {
-            column
-                .get_data_ptr()
-                .byte_add(self.table_row.as_usize() * meta.size_bytes)
-        };
+        let (ptr, component, meta) = unsafe { zip_exact(&mut self.components, &mut self.meta) }
+            .find_map(|(&component, meta)| {
+                // SAFETY: we know that the `table_row` is a valid index.
+                let ptr = unsafe { self.table.get_component(component, self.table_row) }?;
+                Some((ptr, component, meta))
+            })?;
         // SAFETY: The instance of `WriteTraits` that created this iterator
         // has exclusive access to all table components registered with the trait.
         //
@@ -74,10 +73,14 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteTableTraitsIter<'a, Trait
         let trait_object = unsafe { meta.dyn_ctor.cast_mut(ptr) };
         // SAFETY: We have exclusive access to the component, so by extension
         // we have exclusive access to the corresponding `ComponentTicks`.
-        let added = unsafe { column.get_added_tick_unchecked(self.table_row).deref_mut() };
+        let added = unsafe {
+            self.table
+                .get_added_tick(component, self.table_row)?
+                .deref_mut()
+        };
         let changed = unsafe {
-            column
-                .get_changed_tick_unchecked(self.table_row)
+            self.table
+                .get_changed_tick(component, self.table_row)?
                 .deref_mut()
         };
         Some(Mut::new(
@@ -108,13 +111,12 @@ impl<'a, Trait: ?Sized + TraitQuery> Iterator for WriteSparseTraitsIter<'a, Trai
     fn next(&mut self) -> Option<Self::Item> {
         // Iterate the remaining sparse set components we have registered,
         // until we find one that exists in the archetype.
-        let ((ptr, component_ticks), meta) =
+        let (ptr, component_ticks, meta) =
             unsafe { zip_exact(&mut self.components, &mut self.meta) }.find_map(
                 |(&component, meta)| {
-                    self.sparse_sets
-                        .get(component)
-                        .and_then(|set| set.get_with_ticks(self.entity))
-                        .zip(Some(meta))
+                    let set = self.sparse_sets.get(component)?;
+                    let (ptr, ticks, _) = set.get_with_ticks(self.entity)?;
+                    Some((ptr, ticks, meta))
                 },
             )?;
 
