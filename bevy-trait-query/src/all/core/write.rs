@@ -203,8 +203,8 @@ impl<'w, Trait: ?Sized + TraitQuery> IntoIterator for WriteTraits<'w, Trait> {
     }
 }
 
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local WriteTraits<'world, Trait>
+impl<'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local WriteTraits<'_, Trait>
 {
     type Item = Ref<'local, Trait>;
     type IntoIter = CombinedReadTraitsIter<'local, Trait>;
@@ -230,8 +230,8 @@ impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
     }
 }
 
-impl<'world, 'local, Trait: ?Sized + TraitQuery> IntoIterator
-    for &'local mut WriteTraits<'world, Trait>
+impl<'local, Trait: ?Sized + TraitQuery> IntoIterator
+    for &'local mut WriteTraits<'_, Trait>
 {
     type Item = Mut<'local, Trait>;
     type IntoIter = CombinedWriteTraitsIter<'local, Trait>;

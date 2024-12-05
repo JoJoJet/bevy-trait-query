@@ -22,10 +22,10 @@ use crate::{
 /// - `Query<One<&mut dyn Trait>>` yields a [`Mut`] object
 pub struct One<T>(pub T);
 
-unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {
+unsafe impl<T: ?Sized + TraitQuery> QueryData for One<&T> {
     type ReadOnly = Self;
 }
-unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a T> {}
+unsafe impl<T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&T> {}
 
 unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
     type ReadOnly = One<&'a T>;
@@ -33,7 +33,7 @@ unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for One<&Trait> {
     type Item<'w> = Ref<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;
@@ -241,7 +241,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for One<&mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;

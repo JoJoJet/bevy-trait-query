@@ -26,15 +26,15 @@ use crate::{
 /// - `Query<&mut dyn Trait>` yields a [`WriteTraits`] object
 pub struct All<T: ?Sized>(T);
 
-unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> QueryData for All<&Trait> {
     type ReadOnly = Self;
 }
-unsafe impl<'a, Trait: ?Sized + TraitQuery> ReadOnlyQueryData for All<&'a Trait> {}
+unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for All<&Trait> {}
 
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for All<&Trait> {
     type Item<'w> = ReadTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;
@@ -159,7 +159,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> QueryData for All<&'a mut Trait> {
 // SAFETY: We only access the components registered in the trait registry.
 // This is known to match the set of components in the TraitQueryState,
 // which is used to match archetypes and register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for All<&'a mut Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for All<&mut Trait> {
     type Item<'w> = WriteTraits<'w, Trait>;
     type Fetch<'w> = AllTraitsFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;
