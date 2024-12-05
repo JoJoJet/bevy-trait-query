@@ -12,7 +12,7 @@ bevy_app = "0.15"
 bevy_core = "0.15"
 
 # proc macro
-bevy-trait-query-impl = { version = "0.6.0", path = "./bevy-trait-query-impl" }
+bevy-trait-query-impl = { version = "0.7.0", path = "./bevy-trait-query-impl" }
 proc-macro2 = "1"
 syn = { version = "2", features = ["full"] }
 quote = "1"
