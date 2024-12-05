@@ -22,10 +22,10 @@ use crate::{
 /// - `Query<One<&mut dyn Trait>>` yields a [`Mut`] object
 pub struct One<T>(pub T);
 
-unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a T> {
+unsafe impl<T: ?Sized + TraitQuery> QueryData for One<&T> {
     type ReadOnly = Self;
 }
-unsafe impl<'a, T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&'a T> {}
+unsafe impl<T: ?Sized + TraitQuery> ReadOnlyQueryData for One<&T> {}
 
 unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
     type ReadOnly = One<&'a T>;
@@ -33,7 +33,7 @@ unsafe impl<'a, T: ?Sized + TraitQuery> QueryData for One<&'a mut T> {
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for One<&Trait> {
     type Item<'w> = Ref<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;
@@ -70,12 +70,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     ) {
         // Search for a registered trait impl that is present in the archetype.
         // We check the table components first since it is faster to retrieve data of this type.
+        //
+        // without loss of generality we use the zero-th row since we only care about whether the
+        // component exists in the table
+        let row = TableRow::from_usize(0);
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
+            if let Some((ptr, added, changed)) =
+                table.get_component(component, row).and_then(|ptr| {
+                    let added = table.get_added_ticks_slice_for(component)?;
+                    let changed = table.get_changed_ticks_slice_for(component)?;
+                    Some((ptr, added, changed))
+                })
+            {
                 fetch.storage = FetchStorage::Table {
-                    column: column.get_data_ptr(),
-                    added_ticks: column.get_added_ticks_slice().into(),
-                    changed_ticks: column.get_changed_ticks_slice().into(),
+                    column: ptr,
+                    added_ticks: added.into(),
+                    changed_ticks: changed.into(),
                     meta,
                 };
                 return;
@@ -101,12 +111,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
+        //
+        // without loss of generality we use the zero-th row since we only care about whether the
+        // component exists in the table
+        let row = TableRow::from_usize(0);
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
+            if let Some((ptr, added, changed)) =
+                table.get_component(component, row).and_then(|ptr| {
+                    let added = table.get_added_ticks_slice_for(component)?;
+                    let changed = table.get_changed_ticks_slice_for(component)?;
+                    Some((ptr, added, changed))
+                })
+            {
                 fetch.storage = FetchStorage::Table {
-                    column: column.get_data_ptr(),
-                    added_ticks: column.get_added_ticks_slice().into(),
-                    changed_ticks: column.get_changed_ticks_slice().into(),
+                    column: ptr,
+                    added_ticks: added.into(),
+                    changed_ticks: changed.into(),
                     meta,
                 }
             }
@@ -145,7 +165,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
             }
             FetchStorage::SparseSet { components, meta } => {
                 dyn_ctor = meta.dyn_ctor;
-                let (ptr, ticks) = components
+                let (ptr, ticks, _) = components
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 (
@@ -176,18 +196,18 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
         let mut not_first = false;
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<Trait>(),
             );
             if not_first {
                 let mut intermediate = access.clone();
-                intermediate.add_read(component);
+                intermediate.add_component_read(component);
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
                 new_access.and_with(component);
-                new_access.access_mut().add_read(component);
+                new_access.access_mut().add_component_read(component);
                 not_first = true;
             }
         }
@@ -212,11 +232,16 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a Trait> {
     ) -> bool {
         state.matches_component_set_one(set_contains_id)
     }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
 }
 
 // SAFETY: We only access the components registered in TraitQueryState.
 // This same set of components is used to match archetypes, and used to register world access.
-unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for One<&mut Trait> {
     type Item<'w> = Mut<'w, Trait>;
     type Fetch<'w> = OneTraitFetch<'w, Trait>;
     type State = TraitQueryState<Trait>;
@@ -251,12 +276,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the archetype.
+        //
+        // without loss of generality we use the zero-th row since we only care about whether the
+        // component exists in the table
+        let row = TableRow::from_usize(0);
         for (&component, &meta) in zip_exact(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
+            if let Some((ptr, added, changed)) =
+                table.get_component(component, row).and_then(|ptr| {
+                    let added = table.get_added_ticks_slice_for(component)?;
+                    let changed = table.get_changed_ticks_slice_for(component)?;
+                    Some((ptr, added, changed))
+                })
+            {
                 fetch.storage = FetchStorage::Table {
-                    column: column.get_data_ptr(),
-                    added_ticks: column.get_added_ticks_slice().into(),
-                    changed_ticks: column.get_changed_ticks_slice().into(),
+                    column: ptr,
+                    added_ticks: added.into(),
+                    changed_ticks: changed.into(),
                     meta,
                 };
                 return;
@@ -282,12 +317,22 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         table: &'w bevy_ecs::storage::Table,
     ) {
         // Search for a registered trait impl that is present in the table.
+        //
+        // without loss of generality we use the zero-th row since we only care about whether the
+        // component exists in the table
+        let row = TableRow::from_usize(0);
         for (&component, &meta) in std::iter::zip(&*state.components, &*state.meta) {
-            if let Some(column) = table.get_column(component) {
+            if let Some((ptr, added, changed)) =
+                table.get_component(component, row).and_then(|ptr| {
+                    let added = table.get_added_ticks_slice_for(component)?;
+                    let changed = table.get_changed_ticks_slice_for(component)?;
+                    Some((ptr, added, changed))
+                })
+            {
                 fetch.storage = FetchStorage::Table {
-                    column: column.get_data_ptr(),
-                    added_ticks: column.get_added_ticks_slice().into(),
-                    changed_ticks: column.get_changed_ticks_slice().into(),
+                    column: ptr,
+                    added_ticks: added.into(),
+                    changed_ticks: changed.into(),
                     meta,
                 };
                 return;
@@ -330,7 +375,7 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
             }
             FetchStorage::SparseSet { components, meta } => {
                 dyn_ctor = meta.dyn_ctor;
-                let (ptr, ticks) = components
+                let (ptr, ticks, _) = components
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_unreachable());
                 (
@@ -364,18 +409,18 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         let mut not_first = false;
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
                 std::any::type_name::<Trait>(),
             );
             if not_first {
                 let mut intermediate = access.clone();
-                intermediate.add_write(component);
+                intermediate.add_component_write(component);
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
                 new_access.and_with(component);
-                new_access.access_mut().add_write(component);
+                new_access.access_mut().add_component_write(component);
                 not_first = true;
             }
         }
@@ -399,5 +444,10 @@ unsafe impl<'a, Trait: ?Sized + TraitQuery> WorldQuery for One<&'a mut Trait> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         state.matches_component_set_one(set_contains_id)
+    }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
     }
 }

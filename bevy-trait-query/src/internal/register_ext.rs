@@ -21,7 +21,7 @@ impl RegisterExt for World {
     where
         (C,): TraitQueryMarker<Trait, Covered = C>,
     {
-        let component_id = self.init_component::<C>();
+        let component_id = self.register_component::<C>();
         let registry = self
             .get_resource_or_insert_with::<TraitImplRegistry<Trait>>(Default::default)
             .into_inner();

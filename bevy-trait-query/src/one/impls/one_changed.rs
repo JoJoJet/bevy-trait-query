@@ -57,9 +57,9 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
         // Search for a registered trait impl that is present in the archetype.
         // We check the table components first since it is faster to retrieve data of this type.
         for &component in &*state.components {
-            if let Some(column) = table.get_column(component) {
+            if let Some(changed) = table.get_changed_ticks_slice_for(component) {
                 fetch.storage = ChangeDetectionStorage::Table {
-                    ticks: column.get_changed_ticks_slice().into(),
+                    ticks: changed.into(),
                 };
                 return;
             }
@@ -108,18 +108,18 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
         let mut not_first = false;
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<Trait>(),
             );
             if not_first {
                 let mut intermediate = access.clone();
-                intermediate.add_read(component);
+                intermediate.add_component_read(component);
                 new_access.append_or(&intermediate);
                 new_access.extend_access(&intermediate);
             } else {
                 new_access.and_with(component);
-                new_access.access_mut().add_read(component);
+                new_access.access_mut().add_component_read(component);
                 not_first = true;
             }
         }
@@ -143,6 +143,11 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for OneChanged<Trait> {
     ) -> bool {
         state.matches_component_set_one(set_contains_id)
     }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
 }
 
 /// SAFETY: read-only access
@@ -150,7 +155,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> QueryData for OneChanged<Trait> {
     type ReadOnly = Self;
 }
 unsafe impl<Trait: ?Sized + TraitQuery> ReadOnlyQueryData for OneChanged<Trait> {}
-impl<Trait: ?Sized + TraitQuery> QueryFilter for OneChanged<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> QueryFilter for OneChanged<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,

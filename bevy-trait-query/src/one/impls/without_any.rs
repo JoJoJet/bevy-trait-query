@@ -63,7 +63,7 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutAny<Trait> {
     ) {
         for &component in &*state.components {
             assert!(
-                !access.access().has_write(component),
+                !access.access().has_component_write(component),
                 "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<Trait>(),
             );
@@ -89,10 +89,15 @@ unsafe impl<Trait: ?Sized + TraitQuery> WorldQuery for WithoutAny<Trait> {
     ) -> bool {
         !state.components.iter().any(|&id| set_contains_id(id))
     }
+
+    #[inline]
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
 }
 
 /// SAFETY: read-only access
-impl<Trait: ?Sized + TraitQuery> QueryFilter for WithoutAny<Trait> {
+unsafe impl<Trait: ?Sized + TraitQuery> QueryFilter for WithoutAny<Trait> {
     const IS_ARCHETYPAL: bool = false;
     unsafe fn filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
